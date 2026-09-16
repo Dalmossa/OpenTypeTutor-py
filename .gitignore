@@ -1,0 +1,30 @@
+# Node / TypeScript
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+
+# Banco de dados local (dev)
+data/
+*.sqlite*
+
+# Env (mantém os .env.example)
+.env
+.env.*
+!.env.example
+
+# Ferramentas / terceiros embutidos
+graphify-out/
+.husky/_
+everything-claude-code/
+.firecrawl/
+
+# Material de referência (não faz parte do código)
+*.zip
+*.pdf
+Teclado.jpg
+
+# Python (desktop/)
+desktop/.venv/
+__pycache__/
+*.pyc
