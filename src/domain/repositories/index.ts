@@ -1,0 +1,8 @@
+export { IUserRepository } from './IUserRepository.js';
+export { IUserProfileRepository } from './IUserProfileRepository.js';
+export { ILessonRepository } from './ILessonRepository.js';
+export { ITypingSessionRepository } from './ITypingSessionRepository.js';
+export { IKeyPerformanceRepository } from './IKeyPerformanceRepository.js';
+export { IProgressRepository } from './IProgressRepository.js';
+export { IProgressCardRepository } from './IProgressCardRepository.js';
+export { INGramRepository } from './INGramRepository.js';
