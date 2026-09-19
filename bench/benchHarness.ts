@@ -14,6 +14,7 @@ import { TypeOrmTypingSessionRepository } from '../src/infrastructure/repositori
 import { TypeOrmKeyPerformanceRepository } from '../src/infrastructure/repositories/TypeOrmKeyPerformanceRepository.js';
 import { TypeOrmProgressRepository } from '../src/infrastructure/repositories/TypeOrmProgressRepository.js';
 import { TypeOrmProgressCardRepository } from '../src/infrastructure/repositories/TypeOrmProgressCardRepository.js';
+import { TypeOrmPracticePacingRepository } from '../src/infrastructure/repositories/TypeOrmPracticePacingRepository.js';
 import { InMemoryRateLimiter } from '../src/infrastructure/rateLimit/InMemoryRateLimiter.js';
 import { createRateLimitMiddleware } from '../src/presentation/middlewares/rateLimitMiddleware.js';
 import { rateLimitParams } from '../src/infrastructure/auth/rateLimitParams.js';
@@ -40,6 +41,7 @@ import { GetUserProgress } from '../src/application/use-cases/GetUserProgress.js
 import { GetUserKeyPerformance } from '../src/application/use-cases/GetUserKeyPerformance.js';
 import { GetNextPedagogicalLesson } from '../src/application/use-cases/GetNextPedagogicalLesson.js';
 import { SubmitProgressCard } from '../src/application/use-cases/SubmitProgressCard.js';
+import { GetPracticeStatus } from '../src/application/use-cases/GetPracticeStatus.js';
 import { CheckErgonomicSafety } from '../src/application/use-cases/CheckErgonomicSafety.js';
 import { TypingSessionEntity, type TypingSessionRow } from '../src/infrastructure/database/entities/index.js';
 
@@ -102,6 +104,7 @@ export function buildApp(dataSource: DataSource) {
   const keyPerformanceRepository = new TypeOrmKeyPerformanceRepository(dataSource);
   const progressRepository = new TypeOrmProgressRepository(dataSource);
   const progressCardRepository = new TypeOrmProgressCardRepository(dataSource);
+  const pacingRepository = new TypeOrmPracticePacingRepository(dataSource);
   const passwordHasher = new BcryptPasswordHasher();
   const passwordValidator = new AuthPasswordValidator();
   const tokenService = new JwtTokenService();
@@ -130,7 +133,7 @@ export function buildApp(dataSource: DataSource) {
     updateUserLayout: new UpdateUserLayout(userProfileRepository),
     listLessons: new ListLessons(lessonRepository, userProfileRepository),
     getLesson: new GetLesson(lessonRepository),
-    startSession: new StartTypingSession(sessionRepository, lessonRepository, userProfileRepository),
+    startSession: new StartTypingSession(sessionRepository, lessonRepository, userProfileRepository, pacingRepository),
     pauseSession: new PauseTypingSession(sessionRepository),
     resumeSession: new ResumeTypingSession(sessionRepository),
     abandonSession: new AbandonTypingSession(sessionRepository),
@@ -138,7 +141,8 @@ export function buildApp(dataSource: DataSource) {
       sessionRepository,
       keyPerformanceRepository,
       progressRepository,
-      lessonRepository
+      lessonRepository,
+      pacingRepository
     ),
     getReinforcementLesson: new GetReinforcementLesson(userProfileRepository, keyPerformanceRepository, nGramRepository),
     getUserProgress: new GetUserProgress(progressRepository, lessonRepository),
@@ -146,6 +150,7 @@ export function buildApp(dataSource: DataSource) {
     getNextPedagogicalLesson: new GetNextPedagogicalLesson(progressCardRepository, lessonRepository),
     submitProgressCard: new SubmitProgressCard(progressCardRepository),
     checkErgonomicSafety: new CheckErgonomicSafety(),
+    getPracticeStatus: new GetPracticeStatus(pacingRepository),
   });
 
   return app;

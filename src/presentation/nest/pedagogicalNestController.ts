@@ -19,7 +19,7 @@ import { parseSchema } from '../validation/zodErrorMap.js';
 import { AuthGuard, getRequestUserId } from './auth.guard.js';
 import { TOKENS } from './nestTokens.js';
 
-@Controller()
+@Controller('/me')
 @UseGuards(AuthGuard)
 export class PedagogicalNestController {
   constructor(
