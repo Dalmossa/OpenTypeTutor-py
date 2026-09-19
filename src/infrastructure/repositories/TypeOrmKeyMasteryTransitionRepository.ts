@@ -1,11 +1,14 @@
-import type { DataSource, Repository } from 'typeorm';
-import type { IKeyMasteryTransitionRepository } from '../../domain/repositories/IKeyMasteryTransitionRepository.js';
-import type { KeyMasteryTransition } from '../../domain/entities/KeyMasteryTransition.js';
-import type { SessionId } from '../../domain/value-objects/SessionId.js';
-import { SessionId as SessionIdValue } from '../../domain/value-objects/SessionId.js';
-import { Layout as LayoutValue } from '../../domain/value-objects/Layout.js';
-import { KeyMasteryTransition as KeyMasteryTransitionValue } from '../../domain/entities/KeyMasteryTransition.js';
-import { KeyMasteryTransitionEntity, type KeyMasteryTransitionRow } from '../database/entities/index.js';
+import type { DataSource, Repository } from "typeorm";
+import type { IKeyMasteryTransitionRepository } from "../../domain/repositories/IKeyMasteryTransitionRepository.js";
+import type { KeyMasteryTransition } from "../../domain/entities/KeyMasteryTransition.js";
+import type { SessionId } from "../../domain/value-objects/SessionId.js";
+import { SessionId as SessionIdValue } from "../../domain/value-objects/SessionId.js";
+import { Layout as LayoutValue } from "../../domain/value-objects/Layout.js";
+import { KeyMasteryTransition as KeyMasteryTransitionValue } from "../../domain/entities/KeyMasteryTransition.js";
+import {
+  KeyMasteryTransitionEntity,
+  type KeyMasteryTransitionRow,
+} from "../database/entities/index.js";
 
 function toRow(transition: KeyMasteryTransition): KeyMasteryTransitionRow {
   return {
@@ -46,14 +49,19 @@ export class TypeOrmKeyMasteryTransitionRepository implements IKeyMasteryTransit
   async findByUserBetween(
     userId: SessionId,
     fromDate: string,
-    toDate: string
+    toDate: string,
   ): Promise<KeyMasteryTransition[]> {
     const rows = await this.repo.find({
       where: { userId: userId.value },
-      order: { date: 'ASC', id: 'ASC' },
+      order: { date: "ASC", id: "ASC" },
     });
     return rows
       .filter((r) => r.date >= fromDate && r.date <= toDate)
       .map(fromRow);
+  }
+
+  // RN31 - reset de progresso apaga a timeline do usuário (RN17)
+  async deleteByUserId(userId: SessionId): Promise<void> {
+    await this.repo.delete({ userId: userId.value });
   }
 }
