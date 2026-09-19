@@ -1,5 +1,6 @@
 import type { Request, Response } from 'express';
 import type {
+  GetLessonPerformancePort,
   GetPracticeStatusPort,
   GetReinforcementLessonPort,
   GetUserKeyPerformancePort,
@@ -12,7 +13,8 @@ export class ProgressController {
     private readonly getReinforcementLesson: GetReinforcementLessonPort,
     private readonly getUserProgress: GetUserProgressPort,
     private readonly getUserKeyPerformance: GetUserKeyPerformancePort,
-    private readonly getPracticeStatus: GetPracticeStatusPort
+    private readonly getPracticeStatus: GetPracticeStatusPort,
+    private readonly getLessonPerformance: GetLessonPerformancePort
   ) {}
 
   async reinforcementLesson(req: Request, res: Response): Promise<void> {
@@ -37,6 +39,13 @@ export class ProgressController {
   async practiceStatus(req: Request, res: Response): Promise<void> {
     const userId = getAuthUserId(req);
     const result = await this.getPracticeStatus.execute(userId);
+    res.json(result);
+  }
+
+  // RN32 - status visual por lição (NOT_STARTED/MASTERED/REVIEW/PRACTICING)
+  async lessonsPerformance(req: Request, res: Response): Promise<void> {
+    const userId = getAuthUserId(req);
+    const result = await this.getLessonPerformance.execute(userId);
     res.json(result);
   }
 }

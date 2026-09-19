@@ -11,6 +11,7 @@ import type { SessionCommandResponseDTO } from '../../application/dtos/SessionDT
 import type { RefreshTokenResponseDTO } from '../../application/dtos/RefreshTokenDTO.js';
 import type { GetUserResponseDTO, UpdateUserLayoutResponseDTO } from '../../application/dtos/UserDTOs.js';
 import type { PracticeStatusDTO } from '../../application/dtos/PracticePacingDTOs.js';
+import type { LessonPerformanceDTO } from '../../application/dtos/LessonPerformanceDTOs.js';
 import type {
   CheckErgonomicSafetyResponseDTO,
   GetNextPedagogicalLessonResponseDTO,
@@ -115,6 +116,7 @@ interface TestCalls {
   submitCard: Mock;
   ergonomic: Mock;
   practiceStatus: Mock;
+  lessonPerformance: Mock;
 }
 
 async function buildNestApp(overrides: Partial<NestDependencyValues> = {}): Promise<{
@@ -193,6 +195,7 @@ async function buildNestApp(overrides: Partial<NestDependencyValues> = {}): Prom
         breakRemainingMs: 0,
       })
   );
+  const lessonPerformance = vi.fn((): Promise<LessonPerformanceDTO[]> => Promise.resolve([]));
   const tokenService = {
     signAccessToken: vi.fn(() => 'access-token'),
     signRefreshToken: vi.fn(() => 'refresh-token'),
@@ -228,6 +231,7 @@ async function buildNestApp(overrides: Partial<NestDependencyValues> = {}): Prom
     [TOKENS.SUBMIT_PROGRESS_CARD]: { execute: submitCard },
     [TOKENS.CHECK_ERGONOMIC_SAFETY]: { execute: ergonomic },
     [TOKENS.GET_PRACTICE_STATUS]: { execute: practiceStatus },
+    [TOKENS.GET_LESSON_PERFORMANCE]: { execute: lessonPerformance },
     ...overrides,
   };
 
@@ -262,6 +266,7 @@ async function buildNestApp(overrides: Partial<NestDependencyValues> = {}): Prom
       submitCard,
       ergonomic,
       practiceStatus,
+      lessonPerformance,
     },
   };
 }
@@ -439,6 +444,18 @@ describe('Nest - rotas de sessão, lições e pedagógico (TASK-082)', () => {
     expect(res.status).toBe(401);
     expect(asErrorBody(res.body).error.code).toBe('UNAUTHORIZED');
     expect(calls.resetProgress).not.toHaveBeenCalled();
+    await app.close();
+  });
+
+  it('RN32 - GET /me/lessons/performance → 200 com userId do token', async () => {
+    const { app, calls } = await buildNestApp();
+    const res = await request(httpServer(app))
+      .get('/me/lessons/performance')
+      .set('Authorization', 'Bearer valid');
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual([]);
+    expect(calls.lessonPerformance).toHaveBeenCalledOnce();
     await app.close();
   });
 });

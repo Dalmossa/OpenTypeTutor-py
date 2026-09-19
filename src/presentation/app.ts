@@ -2,6 +2,7 @@ import express, { type RequestHandler } from 'express';
 import { AppError } from '../shared/errors/AppError.js';
 import type {
   CheckErgonomicSafetyPort,
+  GetLessonPerformancePort,
   GetLessonPort,
   GetNextPedagogicalLessonPort,
   GetPracticeStatusPort,
@@ -56,6 +57,7 @@ export interface AppDependencies {
   submitProgressCard: SubmitProgressCardPort;
   checkErgonomicSafety: CheckErgonomicSafetyPort;
   getPracticeStatus: GetPracticeStatusPort;
+  getLessonPerformance: GetLessonPerformancePort;
 }
 
 export function createApp(deps: AppDependencies): express.Express {
@@ -81,7 +83,8 @@ export function createApp(deps: AppDependencies): express.Express {
     deps.getReinforcementLesson,
     deps.getUserProgress,
     deps.getUserKeyPerformance,
-    deps.getPracticeStatus
+    deps.getPracticeStatus,
+    deps.getLessonPerformance
   );
   const pedagogicalController = new PedagogicalController(
     deps.getNextPedagogicalLesson,

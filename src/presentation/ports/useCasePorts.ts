@@ -29,6 +29,7 @@ import type {
   SubmitProgressCardResponseDTO,
 } from '../../application/dtos/ProgressCardDTOs.js';
 import type { PracticeStatusDTO } from '../../application/dtos/PracticePacingDTOs.js';
+import type { LessonPerformanceDTO } from '../../application/dtos/LessonPerformanceDTOs.js';
 
 export interface RegisterUserPort {
   execute(dto: RegisterUserDTO): Promise<RegisterUserResponseDTO>;
@@ -100,4 +101,8 @@ export interface CheckErgonomicSafetyPort {
 
 export interface GetPracticeStatusPort {
   execute(userId: string): Promise<PracticeStatusDTO>;
+}
+
+export interface GetLessonPerformancePort {
+  execute(userId: string): Promise<LessonPerformanceDTO[]>;
 }

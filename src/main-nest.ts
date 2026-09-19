@@ -39,6 +39,7 @@ import { CheckErgonomicSafety } from './application/use-cases/CheckErgonomicSafe
 import { GetNextPedagogicalLesson } from './application/use-cases/GetNextPedagogicalLesson.js';
 import { SubmitProgressCard } from './application/use-cases/SubmitProgressCard.js';
 import { GetPracticeStatus } from './application/use-cases/GetPracticeStatus.js';
+import { GetLessonPerformance } from './application/use-cases/GetLessonPerformance.js';
 import { AppNestModule, type NestDependencyValues } from './presentation/nest/appNest.js';
 import { TOKENS } from './presentation/nest/nestTokens.js';
 import { AppExceptionFilter } from './presentation/nest/app-exception.filter.js';
@@ -110,6 +111,7 @@ async function bootstrap(): Promise<void> {
     [TOKENS.SUBMIT_PROGRESS_CARD]: new SubmitProgressCard(progressCardRepository, lessonRepository),
     [TOKENS.CHECK_ERGONOMIC_SAFETY]: new CheckErgonomicSafety(),
     [TOKENS.GET_PRACTICE_STATUS]: new GetPracticeStatus(pacingRepository),
+    [TOKENS.GET_LESSON_PERFORMANCE]: new GetLessonPerformance(sessionRepository),
   };
 
   const app = await NestFactory.create<NestExpressApplication>(AppNestModule.forRoot(deps));

@@ -35,6 +35,7 @@ import { CheckErgonomicSafety } from './application/use-cases/CheckErgonomicSafe
 import { GetNextPedagogicalLesson } from './application/use-cases/GetNextPedagogicalLesson.js';
 import { SubmitProgressCard } from './application/use-cases/SubmitProgressCard.js';
 import { GetPracticeStatus } from './application/use-cases/GetPracticeStatus.js';
+import { GetLessonPerformance } from './application/use-cases/GetLessonPerformance.js';
 
 async function main(): Promise<void> {
   const dataSource = createDataSource();
@@ -100,6 +101,7 @@ async function main(): Promise<void> {
     submitProgressCard: new SubmitProgressCard(progressCardRepository, lessonRepository),
     checkErgonomicSafety: new CheckErgonomicSafety(),
     getPracticeStatus: new GetPracticeStatus(pacingRepository),
+    getLessonPerformance: new GetLessonPerformance(sessionRepository),
   });
 
   const PORT = Number(process.env.PORT ?? 3000);

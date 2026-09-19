@@ -7,7 +7,9 @@ import type {
 } from '../../application/dtos/ProgressDTOs.js';
 import type { LessonDTO } from '../../domain/entities/Lesson.js';
 import type { PracticeStatusDTO } from '../../application/dtos/PracticePacingDTOs.js';
+import type { LessonPerformanceDTO } from '../../application/dtos/LessonPerformanceDTOs.js';
 import type {
+  GetLessonPerformancePort,
   GetPracticeStatusPort,
   GetReinforcementLessonPort,
   GetUserKeyPerformancePort,
@@ -25,7 +27,8 @@ export class ProgressNestController {
     @Inject(TOKENS.GET_USER_PROGRESS) private readonly userProgress: GetUserProgressPort,
     @Inject(TOKENS.GET_USER_KEY_PERFORMANCE) private readonly keyPerformance: GetUserKeyPerformancePort,
     @Inject(TOKENS.RESET_PROGRESS) private readonly resetProgress: ResetProgressPort,
-    @Inject(TOKENS.GET_PRACTICE_STATUS) private readonly practiceStatus: GetPracticeStatusPort
+    @Inject(TOKENS.GET_PRACTICE_STATUS) private readonly practiceStatus: GetPracticeStatusPort,
+    @Inject(TOKENS.GET_LESSON_PERFORMANCE) private readonly lessonPerformance: GetLessonPerformancePort
   ) {}
 
   @Get('reinforcement-lesson')
@@ -58,5 +61,12 @@ export class ProgressNestController {
   async pacing(@Req() req: Request): Promise<PracticeStatusDTO> {
     const userId = getRequestUserId(req);
     return this.practiceStatus.execute(userId);
+  }
+
+  // RN32 - status visual por lição (NOT_STARTED/MASTERED/REVIEW/PRACTICING)
+  @Get('lessons/performance')
+  async lessonsPerformance(@Req() req: Request): Promise<LessonPerformanceDTO[]> {
+    const userId = getRequestUserId(req);
+    return this.lessonPerformance.execute(userId);
   }
 }

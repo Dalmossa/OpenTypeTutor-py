@@ -38,6 +38,7 @@ import { CheckErgonomicSafety } from '../application/use-cases/CheckErgonomicSaf
 import { GetNextPedagogicalLesson } from '../application/use-cases/GetNextPedagogicalLesson.js';
 import { SubmitProgressCard } from '../application/use-cases/SubmitProgressCard.js';
 import { GetPracticeStatus } from '../application/use-cases/GetPracticeStatus.js';
+import { GetLessonPerformance } from '../application/use-cases/GetLessonPerformance.js';
 import { Lesson } from '../domain/entities/Lesson.js';
 import { Layout } from '../domain/value-objects/Layout.js';
 import { SessionId } from '../domain/value-objects/SessionId.js';
@@ -222,6 +223,7 @@ describe('Fase 7 - fluxo completo HTTP→Controller→Use Case→Domain→Reposi
       submitProgressCard: new SubmitProgressCard(progressCardRepository, lessonRepository),
       checkErgonomicSafety: new CheckErgonomicSafety(),
       getPracticeStatus: new GetPracticeStatus(pacingRepository),
+      getLessonPerformance: new GetLessonPerformance(sessionRepository),
     };
 
     app = createApp(deps);

@@ -25,6 +25,7 @@ import type {
   SubmitProgressCardResponseDTO,
 } from '../application/dtos/ProgressCardDTOs.js';
 import type { PracticeStatusDTO } from '../application/dtos/PracticePacingDTOs.js';
+import type { LessonPerformanceDTO } from '../application/dtos/LessonPerformanceDTOs.js';
 
 const TEST_USER_ID = '550e8400-e29b-41d4-a716-446655440000';
 const SESSION_ID = '9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d';
@@ -136,6 +137,7 @@ interface TestCalls {
   submitCard: Mock;
   ergonomic: Mock;
   practiceStatus: Mock;
+  lessonPerformance: Mock;
 }
 
 interface TestContext {
@@ -215,6 +217,7 @@ function buildTestApp(overrides: Partial<AppDependencies> = {}): TestContext {
         breakRemainingMs: 0,
       })
   );
+  const lessonPerformance = vi.fn((): Promise<LessonPerformanceDTO[]> => Promise.resolve([]));
 
   const deps: AppDependencies = {
     authMiddleware: stubAuth(),
@@ -239,6 +242,7 @@ function buildTestApp(overrides: Partial<AppDependencies> = {}): TestContext {
     submitProgressCard: { execute: submitCard },
     checkErgonomicSafety: { execute: ergonomic },
     getPracticeStatus: { execute: practiceStatus },
+    getLessonPerformance: { execute: lessonPerformance },
     ...overrides,
   };
 
@@ -264,6 +268,7 @@ function buildTestApp(overrides: Partial<AppDependencies> = {}): TestContext {
       submitCard,
       ergonomic,
       practiceStatus,
+      lessonPerformance,
     },
   };
 }
@@ -659,6 +664,14 @@ describe('TASK-060/061 - /me/reinforcement-lesson e /me/progress', () => {
 
     expect(res.status).toBe(200);
     expect(calls.practiceStatus).toHaveBeenCalledWith(TEST_USER_ID);
+  });
+
+  it('RN32 - GET /me/lessons/performance → 200 com userId do token', async () => {
+    const { app, calls } = buildTestApp();
+    const res = await request(app).get('/me/lessons/performance').set('Authorization', 'Bearer token');
+
+    expect(res.status).toBe(200);
+    expect(calls.lessonPerformance).toHaveBeenCalledWith(TEST_USER_ID);
   });
 });
 

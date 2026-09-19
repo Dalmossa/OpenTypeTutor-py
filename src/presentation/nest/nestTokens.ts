@@ -20,6 +20,7 @@ export const TOKENS = {
   SUBMIT_PROGRESS_CARD: 'SubmitProgressCard',
   CHECK_ERGONOMIC_SAFETY: 'CheckErgonomicSafety',
   GET_PRACTICE_STATUS: 'GetPracticeStatus',
+  GET_LESSON_PERFORMANCE: 'GetLessonPerformance',
 } as const;
 
 export type TokenMap = Record<(typeof TOKENS)[keyof typeof TOKENS], unknown>;
