@@ -42,6 +42,18 @@ describe('RN35 - DailyMetricsAggregate', () => {
     expect(merged.keysPracticed.sort()).toEqual(['a', 'b', 'c']);
   });
 
+  it('RN34 - merge acumula contagem de acionamentos por tecla (mapa de calor)', () => {
+    const day = DailyMetricsAggregate.create({
+      userId: USER_ID,
+      layout: ABNT2,
+      date: '2026-01-01',
+    });
+
+    const merged = day.merge(sessionMetrics(), ['a', 'a', 'b']).merge(sessionMetrics(), ['a', 'c']);
+
+    expect(merged.keyCountsByKey).toEqual({ a: 3, b: 1, c: 1 });
+  });
+
   it('RN35 - derivações do dia: netWpm, precisão e latência média', () => {
     const day = DailyMetricsAggregate.create({
       userId: USER_ID,

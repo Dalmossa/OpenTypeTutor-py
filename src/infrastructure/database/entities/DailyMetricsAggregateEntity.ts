@@ -12,6 +12,7 @@ export interface DailyMetricsAggregateRow {
   totalLatencyMs: number;
   totalLatencySamples: number;
   keysPracticed: string; // JSON array
+  keyCounts: string; // JSON object
 }
 
 // RN35 - agregado diário pré-computado (RN14: upsert idempotente no submit). RN17: userId na PK.
@@ -30,5 +31,6 @@ export const DailyMetricsAggregateEntity = new EntitySchema<DailyMetricsAggregat
     totalLatencyMs: { type: 'int', nullable: false, default: 0 },
     totalLatencySamples: { type: 'int', nullable: false, default: 0 },
     keysPracticed: { type: 'text', nullable: false, default: '[]' },
+    keyCounts: { type: 'text', nullable: false, default: '{}' },
   },
 });

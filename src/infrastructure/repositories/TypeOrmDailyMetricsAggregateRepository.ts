@@ -21,6 +21,7 @@ function toRow(aggregate: DailyMetricsAggregate): DailyMetricsAggregateRow {
     totalLatencyMs: aggregate.totalLatencyMs,
     totalLatencySamples: aggregate.totalLatencySamples,
     keysPracticed: JSON.stringify(aggregate.keysPracticed),
+    keyCounts: JSON.stringify(aggregate.keyCountsByKey),
   };
 }
 
@@ -37,6 +38,7 @@ function fromRow(row: DailyMetricsAggregateRow): DailyMetricsAggregate {
     totalLatencyMs: row.totalLatencyMs,
     totalLatencySamples: row.totalLatencySamples,
     keysPracticed: JSON.parse(row.keysPracticed) as string[],
+    keyCounts: JSON.parse(row.keyCounts) as Record<string, number>,
   });
 }
 

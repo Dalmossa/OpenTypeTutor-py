@@ -12,6 +12,7 @@ import { AddPracticePacingTable1700000000007 } from './migrations/1700000000007-
 import { AddDailyMetricsAggregateTable1700000000008 } from './migrations/1700000000008-AddDailyMetricsAggregateTable.js';
 import { AddDashboardFields1700000000009 } from './migrations/1700000000009-AddDashboardFields.js';
 import { AddKeyMasteryTransitionTable17000000000010 } from './migrations/17000000000010-AddKeyMasteryTransitionTable.js';
+import { AddDashboardHeatmapCounts17000000000011 } from './migrations/17000000000011-AddDashboardHeatmapCounts.js';
 
 type DataSourceConfig = {
   database?: string;
@@ -27,6 +28,7 @@ const SCHEMA_MIGRATIONS: (new () => MigrationInterface)[] = [
   AddDailyMetricsAggregateTable1700000000008,
   AddDashboardFields1700000000009,
   AddKeyMasteryTransitionTable17000000000010,
+  AddDashboardHeatmapCounts17000000000011,
 ];
 const ALL_MIGRATIONS: (new () => MigrationInterface)[] = [
   InitSchema1700000000000,
@@ -40,6 +42,7 @@ const ALL_MIGRATIONS: (new () => MigrationInterface)[] = [
   AddDailyMetricsAggregateTable1700000000008,
   AddDashboardFields1700000000009,
   AddKeyMasteryTransitionTable17000000000010,
+  AddDashboardHeatmapCounts17000000000011,
 ];
 
 export function createDataSource(config?: Partial<DataSourceConfig>): DataSource {

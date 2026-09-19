@@ -14,6 +14,7 @@ export interface DailyMetricsAggregateProps {
   totalLatencyMs?: number;
   totalLatencySamples?: number;
   keysPracticed?: string[];
+  keyCounts?: Record<string, number>;
 }
 
 interface DailyMetricsAggregateInternalProps {
@@ -28,6 +29,7 @@ interface DailyMetricsAggregateInternalProps {
   totalLatencyMs: number;
   totalLatencySamples: number;
   keys: Set<string>;
+  keyCounts: Map<string, number>;
 }
 
 const LOCAL_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
@@ -47,6 +49,7 @@ export class DailyMetricsAggregate {
   readonly totalLatencySamples: number;
 
   private readonly keys: Set<string>;
+  private readonly keyCounts: Map<string, number>;
 
   private constructor(props: DailyMetricsAggregateInternalProps) {
     this.userId = props.userId;
@@ -60,6 +63,7 @@ export class DailyMetricsAggregate {
     this.totalLatencyMs = props.totalLatencyMs;
     this.totalLatencySamples = props.totalLatencySamples;
     this.keys = props.keys;
+    this.keyCounts = props.keyCounts;
   }
 
   static create(props: DailyMetricsAggregateProps): DailyMetricsAggregate {
@@ -85,14 +89,19 @@ export class DailyMetricsAggregate {
       totalLatencyMs: props.totalLatencyMs ?? 0,
       totalLatencySamples: props.totalLatencySamples ?? 0,
       keys: new Set(props.keysPracticed ?? []),
+      keyCounts: new Map(Object.entries(props.keyCounts ?? {})),
     });
   }
 
   // RN35 - incorpora uma sessão concluída ao dia (RN14: re-submit não chega aqui duplicado pela camada de aplicação)
   merge(session: SessionMetrics, keys: string[]): DailyMetricsAggregate {
     const nextKeys = new Set(this.keys);
+    const nextCounts = new Map(this.keyCounts);
     for (const key of keys) {
-      if (key.length > 0) nextKeys.add(key);
+      if (key.length > 0) {
+        nextKeys.add(key);
+        nextCounts.set(key, (nextCounts.get(key) ?? 0) + 1);
+      }
     }
 
     return new DailyMetricsAggregate({
@@ -108,11 +117,17 @@ export class DailyMetricsAggregate {
         this.totalLatencyMs + session.averageLatencyMs * session.charactersTyped,
       totalLatencySamples: this.totalLatencySamples + session.charactersTyped,
       keys: nextKeys,
+      keyCounts: nextCounts,
     });
   }
 
   get keysPracticed(): string[] {
     return Array.from(this.keys);
+  }
+
+  // RN34 - contagem de acionamentos por tecla no dia (alimenta o mapa de calor do dashboard)
+  get keyCountsByKey(): Record<string, number> {
+    return Object.fromEntries(this.keyCounts);
   }
 
   // RN35 - derivações do dia (somente leitura)
@@ -144,6 +159,7 @@ export class DailyMetricsAggregate {
       totalLatencyMs: this.totalLatencyMs,
       totalLatencySamples: this.totalLatencySamples,
       keys: new Set(this.keys),
+      keyCounts: new Map(this.keyCounts),
     };
   }
 }

@@ -35,6 +35,10 @@ export const adaptiveParams = {
   // RN22 - janela de dados insuficiente: sessão com menos de 3s ativos ou 5 caracteres não gera WPM
   INSUFFICIENT_DATA_MIN_DURATION_MS: 3000,
   INSUFFICIENT_DATA_MIN_CHARS: 5,
+
+  // RN35 - janelas de tendência do dashboard (períodos agregáveis, em dias)
+  DASHBOARD_TREND_WINDOWS_DAYS: [7, 30, 90],
+  DASHBOARD_HEATMAP_WINDOW_DAYS: 7,
 } as const;
 
 export type AdaptiveParams = typeof adaptiveParams;
