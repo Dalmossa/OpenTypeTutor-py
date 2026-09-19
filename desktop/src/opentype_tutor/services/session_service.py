@@ -3,6 +3,7 @@ from uuid import UUID
 
 from ..models import (
     KeystrokeEvent,
+    PracticeStatus,
     SessionCreateResponse,
     SessionResult,
 )
@@ -44,3 +45,8 @@ class SessionService:
             json_data=body,
         )
         return SessionResult(**response.json())
+
+    # RN33 - estado de pacing consumido para surfacing de pausa (nenhuma RN no cliente)
+    async def get_practice_status(self) -> PracticeStatus:
+        response = await self.api.get("/me/practice-status")
+        return PracticeStatus(**response.json())

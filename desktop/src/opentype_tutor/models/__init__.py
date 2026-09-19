@@ -15,6 +15,7 @@ from .lesson import (
 from .progress import (
     KeyPerformance,
     MasteryState,
+    PracticeStatus,
     ProgressResponse,
 )
 from .session import (
@@ -58,4 +59,5 @@ __all__ = [
     "MasteryState",
     "KeyPerformance",
     "ProgressResponse",
+    "PracticeStatus",
 ]

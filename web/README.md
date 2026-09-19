@@ -19,12 +19,17 @@ métricas finais (RN22) são computadas pelo backend.
 
 ## Como rodar
 
-Dois processos — back-end Nest.js em `3001`, web em `3000`:
+Dois processos — back-end Nest.js em `3000` (padrão do `npm run dev`), web em `3001`:
 
 ```bash
-npm run dev                # raiz — backend Nest.js em http://localhost:3001
-npm --prefix web run dev  # web — Next.js em http://localhost:3000
+npm run dev                # raiz — backend Nest.js em http://localhost:3000
+npm --prefix web run dev  # web — Next.js em http://localhost:3001
 ```
+
+> Se a web subir em `3001` por padrão (a porta `3000` fica ocupada pelo backend),
+> nada mais é preciso: os defaults do client (`BACKEND_URL`) já apontam para `3000`.
+> Modo alternativo (backend em `3001`): rode `PORT=3001 npm run dev` na raiz e
+> exporte `BACKEND_URL=http://localhost:3001` antes de iniciar a web.
 
 O Next reescreve `/api/*` para o backend (`web/next.config.ts`, variável `BACKEND_URL`),
 mantendo mesma origem — sem CORS, e a base para o cookie httpOnly de refresh (TASK-078).

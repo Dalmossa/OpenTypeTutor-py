@@ -28,7 +28,7 @@ export interface TypingSessionStats {
 }
 
 export interface TypingSessionState {
-  phase: 'idle' | 'loading' | 'typing' | 'paused' | 'submitting' | 'completed' | 'error';
+  phase: 'idle' | 'loading' | 'break' | 'typing' | 'paused' | 'submitting' | 'completed' | 'error';
   lesson: LessonDTO | null;
   sessionId: string | null;
   token: string | null;
@@ -41,6 +41,7 @@ export interface TypingSessionState {
   result: SubmitSessionResponseDTO | null;
   lastInsecureKeys: string[];
   errorMessage: string | null;
+  breakRemainingMs: number;
 }
 
 const EMPTY_STATS: TypingSessionStats = {
@@ -85,6 +86,7 @@ export function useTypingSession(): UseTypingSessionResult {
     result: null,
     lastInsecureKeys: [],
     errorMessage: null,
+    breakRemainingMs: 0,
   });
 
   const targetRef = useRef<string>('');
@@ -103,6 +105,7 @@ export function useTypingSession(): UseTypingSessionResult {
   const compositionStartRef = useRef<number | null>(null);
   const statsRef = useRef<TypingSessionStats>(EMPTY_STATS);
   const pausedRef = useRef(false);
+  const breakTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const getActiveDurationMs = useCallback((): number => {
     if (activeStartRef.current === null) {
@@ -192,9 +195,34 @@ export function useTypingSession(): UseTypingSessionResult {
     [],
   );
 
+  const createSession = useCallback(
+    async (lessonId: string, lesson: LessonDTO, token: string): Promise<void> => {
+      try {
+        const response = await sessions.current?.start(lessonId, token);
+        if (response === undefined) {
+          throw new Error('Sessão não inicializada');
+        }
+        sessionIdRef.current = response.sessionId;
+        activeStartRef.current = Date.now();
+        patchSession({ phase: 'typing', sessionId: response.sessionId, state: response.state });
+      } catch (err) {
+        patchSession({
+          phase: 'error',
+          sessionId: null,
+          errorMessage: toMessage(err),
+        });
+      }
+    },
+    [patchSession],
+  );
+
   const start = useCallback(
     async (lessonId: string, lesson: LessonDTO, token: string) => {
       sessions.current = createControllers().sessions;
+      if (breakTimerRef.current !== null) {
+        clearInterval(breakTimerRef.current);
+        breakTimerRef.current = null;
+      }
       targetRef.current = lesson.content.replace(/[\r\n]+/g, ' ');
       positionRef.current = 0;
       errorsRef.current = new Set();
@@ -221,24 +249,40 @@ export function useTypingSession(): UseTypingSessionResult {
         result: null,
         lastInsecureKeys: [],
         errorMessage: null,
+        breakRemainingMs: 0,
       });
+
+      // RN33 - pausa obrigatória: consulta o pacing antes de criar a sessão.
+      // A regra é reaplicada pelo backend (BREAK_REQUIRED 409) mesmo que a
+      // consulta falhe ou seja ignorada; aqui apenas surface + countdown.
+      let breakRemainingMs = 0;
       try {
-        const response = await sessions.current?.start(lessonId, token);
-        if (response === undefined) {
-          throw new Error('Sessão não inicializada');
+        const status = await sessions.current?.getPracticeStatus(token);
+        if (status !== undefined && status.breakRequired && status.breakRemainingMs > 0) {
+          breakRemainingMs = status.breakRemainingMs;
         }
-        sessionIdRef.current = response.sessionId;
-        activeStartRef.current = Date.now();
-        patchSession({ phase: 'typing', sessionId: response.sessionId, state: response.state });
-      } catch (err) {
-        patchSession({
-          phase: 'error',
-          sessionId: null,
-          errorMessage: toMessage(err),
-        });
+      } catch {
+        breakRemainingMs = 0;
       }
+
+      if (breakRemainingMs > 0) {
+        const startAt = Date.now();
+        patchSession({ phase: 'break', breakRemainingMs });
+        breakTimerRef.current = setInterval(() => {
+          const remaining = Math.max(0, breakRemainingMs - (Date.now() - startAt));
+          patchSession({ breakRemainingMs: remaining });
+          if (remaining === 0 && breakTimerRef.current !== null) {
+            clearInterval(breakTimerRef.current);
+            breakTimerRef.current = null;
+            void createSession(lessonId, lesson, token);
+          }
+        }, 250);
+        return;
+      }
+
+      await createSession(lessonId, lesson, token);
     },
-    [patchSession],
+    [createSession, patchSession],
   );
 
   const commitChar = useCallback(
@@ -452,6 +496,10 @@ export function useTypingSession(): UseTypingSessionResult {
   }, [doSubmit]);
 
   const reset = useCallback(() => {
+    if (breakTimerRef.current !== null) {
+      clearInterval(breakTimerRef.current);
+      breakTimerRef.current = null;
+    }
     setSession({
       phase: 'idle',
       lesson: null,
@@ -466,6 +514,7 @@ export function useTypingSession(): UseTypingSessionResult {
       result: null,
       lastInsecureKeys: [],
       errorMessage: null,
+      breakRemainingMs: 0,
     });
   }, []);
 

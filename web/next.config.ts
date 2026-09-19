@@ -1,7 +1,7 @@
 import path from 'node:path';
 import type { NextConfig } from 'next';
 
-const backendUrl = process.env.BACKEND_URL ?? 'http://localhost:3001';
+const backendUrl = process.env.BACKEND_URL ?? 'http://localhost:3000';
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,

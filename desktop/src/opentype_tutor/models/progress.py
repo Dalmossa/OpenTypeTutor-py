@@ -34,3 +34,11 @@ class ProgressResponse(BaseAPIModel):
     last_completed_at: datetime | None = None
     current_lesson: Lesson | None = None
     level_completion_rate: float = 0.0
+
+
+class PracticeStatus(BaseAPIModel):
+    accumulated_active_ms: int = 0
+    practice_block_ms: int = 900000
+    min_break_ms: int = 180000
+    break_required: bool = False
+    break_remaining_ms: int = 0

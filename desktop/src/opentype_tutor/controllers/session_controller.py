@@ -7,6 +7,7 @@ from uuid import UUID
 
 from ..models import (
     KeystrokeEvent,
+    PracticeStatus,
     SessionMetrics,
     SessionResult,
     SessionState,
@@ -171,3 +172,15 @@ class SessionController(BaseController):
     @property
     def is_active(self) -> bool:
         return self.app_state.current_session.status in (SessionStatus.ACTIVE, SessionStatus.PAUSED)
+
+    # RN33 - consulta o estado de pacing; se houver pausa pendente, o servidor
+    # informa break_required + break_remaining_ms (já deduzidos). Falha de rede
+    # não bloqueia o início: a regra é reaplicada pelo backend (BREAK_REQUIRED 409).
+    async def get_practice_status(self) -> PracticeStatus | None:
+        if not self.session_service or not self.require_auth():
+            return None
+        try:
+            return await self.session_service.get_practice_status()
+        except Exception as e:
+            logger.error(f"Failed to fetch practice status: {e}")
+            return None

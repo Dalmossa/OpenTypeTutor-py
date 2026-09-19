@@ -31,15 +31,31 @@ export default function ProgressPage(): ReactNode {
   const [progress, setProgress] = useState<GetUserProgressDTO | null>(null);
   const [keys, setKeys] = useState<KeyPerformanceDTO[]>([]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [resetting, setResetting] = useState(false);
+
+  const fetchProgressData = useCallback(async (): Promise<{
+    progress: GetUserProgressDTO;
+    keys: KeyPerformanceDTO[];
+  }> => {
+    if (token === null) {
+      throw new Error('Você não está autenticado.');
+    }
+    const controllers = createControllers();
+    const [progressResult, keysResult] = await Promise.all([
+      controllers.progress.getProgress(token),
+      controllers.progress.getKeyPerformance(token),
+    ]);
+    return { progress: progressResult, keys: keysResult };
+  }, [token]);
 
   useEffect(() => {
     if (loading || token === null) {
       return;
     }
     let cancelled = false;
-    const controllers = createControllers();
-    Promise.all([controllers.progress.getProgress(token), controllers.progress.getKeyPerformance(token)])
-      .then(([progressResult, keysResult]) => {
+    fetchProgressData()
+      .then(({ progress: progressResult, keys: keysResult }) => {
         if (!cancelled) {
           setProgress(progressResult);
           setKeys(keysResult);
@@ -53,7 +69,27 @@ export default function ProgressPage(): ReactNode {
     return () => {
       cancelled = true;
     };
-  }, [loading, token]);
+  }, [loading, token, fetchProgressData]);
+
+  const handleReset = useCallback(async (): Promise<void> => {
+    if (token === null) {
+      return;
+    }
+    setResetting(true);
+    setErrorMessage(null);
+    try {
+      const controllers = createControllers();
+      await controllers.progress.resetProgress(token);
+      const { progress: progressResult, keys: keysResult } = await fetchProgressData();
+      setProgress(progressResult);
+      setKeys(keysResult);
+      setShowResetConfirm(false);
+    } catch (err: unknown) {
+      setErrorMessage(err instanceof Error ? err.message : 'Falha ao limpar o progresso');
+    } finally {
+      setResetting(false);
+    }
+  }, [token, fetchProgressData]);
 
   const formatDate = useCallback((iso: string | null): string => {
     if (iso === null) {
@@ -140,6 +176,51 @@ export default function ProgressPage(): ReactNode {
               </li>
             ))}
           </ul>
+        )}
+      </section>
+
+      <section className="rounded-lg border border-red-200 bg-red-50 p-4">
+        <h2 className="text-sm font-semibold text-red-800">Recomeçar do zero</h2>
+        <p className="mt-1 text-sm text-red-700">
+          Apaga todas as suas sessões, o desempenho por tecla, o cartão de progresso e o nível atual, voltando ao
+          nível 1. Sua conta e seu layout de teclado são mantidos.
+        </p>
+        {showResetConfirm ? (
+          <div className="mt-3 flex flex-col gap-2">
+            <p className="text-sm font-medium text-red-900">Tem certeza? Esta ação não pode ser desfeita.</p>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  void handleReset();
+                }}
+                disabled={resetting}
+                className="rounded-md bg-red-600 px-4 py-2 text-sm text-white disabled:opacity-50"
+              >
+                {resetting ? 'Limpando…' : 'Sim, limpar meu progresso'}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowResetConfirm(false);
+                }}
+                disabled={resetting}
+                className="rounded-md border border-red-300 px-4 py-2 text-sm text-red-700 disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => {
+              setShowResetConfirm(true);
+            }}
+            className="mt-3 rounded-md border border-red-300 px-4 py-2 text-sm text-red-700"
+          >
+            Recomeçar do zero
+          </button>
         )}
       </section>
     </div>

@@ -8,6 +8,11 @@ export interface GetUserProgressDTO {
   levelCompletionRate: number;
 }
 
+// RN31 - reset de progresso (mantém conta e layout, volta ao nível 1)
+export interface ResetProgressResponseDTO {
+  reset: true;
+}
+
 export type MasteryState = 'UNKNOWN' | 'LEARNING' | 'CONSOLIDATING' | 'MASTERED' | 'WEAK';
 
 export interface KeyPerformanceDTO {
@@ -27,4 +32,13 @@ export interface KeyPerformanceDTO {
   latencyScore: number;
   recencyScore: number;
   weakKeyScore: number;
+}
+
+// RN33 - estado de pacing consumido para surfacing de pausa (nenhuma RN no cliente)
+export interface PracticeStatusDTO {
+  accumulatedActiveMs: number;
+  practiceBlockMs: number;
+  minBreakMs: number;
+  breakRequired: boolean;
+  breakRemainingMs: number;
 }

@@ -9,7 +9,7 @@ import type {
   RegisterUserResponseDTO,
 } from '@/models/auth';
 import type { LessonDTO } from '@/models/lesson';
-import type { GetUserProgressDTO, KeyPerformanceDTO } from '@/models/progress';
+import type { GetUserProgressDTO, KeyPerformanceDTO, PracticeStatusDTO, ResetProgressResponseDTO } from '@/models/progress';
 import type {
   ErgonomicCheckDTO,
   ErgonomicCheckResponseDTO,
@@ -25,7 +25,7 @@ import type {
   SubmitSessionResponseDTO,
 } from '@/models/session';
 
-export const DEFAULT_BACKEND_URL = 'http://localhost:3001';
+export const DEFAULT_BACKEND_URL = process.env.BACKEND_URL ?? 'http://localhost:3000';
 export const API_PREFIX = '/api';
 // TASK-080 follow-up (RNF06): quando NEXT_PUBLIC_API_URL é informado no build,
 // o navegador chama o backend diretamente (CORS no backend) em vez de passar
@@ -153,6 +153,11 @@ export class ApiClient {
     return this.request<GetUserProgressDTO>('/me/progress', {}, token);
   }
 
+  // RN31 - apaga o progresso do usuário autenticado e volta ao nível 1
+  async resetProgress(token: string): Promise<ResetProgressResponseDTO> {
+    return this.request<ResetProgressResponseDTO>('/me/progress', { method: 'DELETE' }, token);
+  }
+
   async getNextPedagogicalLesson(
     confirmsNoLookingAtKeyboard: boolean,
     token: string,
@@ -174,6 +179,11 @@ export class ApiClient {
 
   async getKeyPerformance(token: string): Promise<KeyPerformanceDTO[]> {
     return this.request<KeyPerformanceDTO[]>('/me/key-performance', {}, token);
+  }
+
+  // RN33 - estado de pacing (acumulado, limites e pausa restante) para a UI cronometrar
+  async getPracticeStatus(token: string): Promise<PracticeStatusDTO> {
+    return this.request<PracticeStatusDTO>('/me/practice-status', {}, token);
   }
 }
 

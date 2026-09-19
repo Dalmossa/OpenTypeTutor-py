@@ -395,7 +395,7 @@ function CompletedPanel({
 
       {verdict.status === 'ready' && verdict.reason === 'advance' && !canAdvance && (
         <p className="max-w-md text-sm text-slate-600">
-          A lição avançou, mas ainda ficaram {String(m.finalUncorrectedErrors)} erros finais. Recomendamos repeti-la
+          A lição avançou, mas ainda ficaram {String(m.finalUncorrectedErrors)} {m.finalUncorrectedErrors === 1 ? 'erro final' : 'erros finais'}. Recomendamos repeti-la
           para consolidar.
         </p>
       )}
@@ -410,7 +410,7 @@ function CompletedPanel({
             Avançar
           </button>
         )}
-        {verdict.status === 'ready' && (canAdvance || verdict.reason === 'repeat' || verdict.reason === 'vary') && (
+        {verdict.status === 'ready' && (canAdvance || verdict.reason === 'repeat' || verdict.reason === 'vary' || (verdict.reason === 'advance' && !canAdvance)) && (
           <button type="button" onClick={onRepeatLesson} className="rounded-md bg-slate-900 px-4 py-2 text-white">
             Repetir lição
           </button>

@@ -7,7 +7,13 @@ import customtkinter as ctk
 
 from ...controllers.session_controller import SessionCallbacks, SessionController
 from ...models import KeystrokeEvent, SessionStatus
-from ...strings import REST_STATE_LABELS
+from ...strings import (
+    BREAK_AVAILABLE_IN,
+    BREAK_INSTRUCTION,
+    BREAK_TIP,
+    BREAK_TITLE,
+    REST_STATE_LABELS,
+)
 from ..components import (
     Caption,
     Heading,
@@ -130,6 +136,30 @@ class SessionScreen(ctk.CTkFrame):
         self.status_label.grid(row=3, column=0, pady=8)
 
         self._build_completion_panel()
+        self._build_break_panel()
+
+    def _build_break_panel(self):
+        # RN33 - overlay de pausa obrigatória entre blocos de prática
+        self.break_panel = ctk.CTkFrame(self, fg_color="#010102")
+        self.break_panel.grid(row=2, column=0, sticky="nsew")
+        self.break_panel.grid_columnconfigure(0, weight=1)
+        self.break_panel.grid_rowconfigure(1, weight=1)
+
+        center = ctk.CTkFrame(self.break_panel, fg_color="transparent")
+        center.grid(row=1, column=0, sticky="nsew")
+        center.grid_columnconfigure(0, weight=1)
+
+        Heading(center, BREAK_TITLE, level=2).grid(row=0, column=0, pady=(48, 8))
+        Subheading(center, BREAK_INSTRUCTION).grid(row=1, column=0, pady=(0, 8))
+        Caption(center, BREAK_TIP).grid(row=2, column=0, pady=(0, 32))
+
+        self.break_available_label = Caption(center, BREAK_AVAILABLE_IN)
+        self.break_available_label.grid(row=3, column=0, pady=(0, 8))
+
+        self.break_countdown = Heading(center, "00:00", level=1)
+        self.break_countdown.grid(row=4, column=0, pady=(0, 32))
+
+        self.break_panel.grid_remove()
 
     def _build_completion_panel(self):
         self.completion_panel = ctk.CTkFrame(self, fg_color="#010102")
@@ -338,3 +368,37 @@ class SessionScreen(ctk.CTkFrame):
 
     async def _handle_retry(self):
         await self.on_retry()
+
+    # RN33 - overlay de pausa obrigatória: conta regressivamente até liberar o Start.
+    # O valor break_remaining_ms vem do servidor (já deduzido); nenhuma RN no cliente.
+    async def wait_for_break(self, remaining_ms: int):
+        self.show_break_overlay()
+        remaining_seconds = max(0, int(remaining_ms // 1000))
+        while remaining_seconds > 0:
+            minutes = remaining_seconds // 60
+            seconds = remaining_seconds % 60
+            self.break_countdown.configure(text=f"{minutes:02d}:{seconds:02d}")
+            await asyncio.sleep(1)
+            remaining_seconds -= 1
+        self.break_countdown.configure(text="00:00")
+        self.hide_break_overlay()
+
+    def show_break_overlay(self):
+        try:
+            self.main_content.grid_remove()
+        except Exception:
+            pass
+        try:
+            self.completion_panel.grid_remove()
+        except Exception:
+            pass
+        self.pause_btn.configure(state="disabled")
+        self.resume_btn.configure(state="disabled")
+        self.break_panel.grid(row=2, column=0, sticky="nsew")
+
+    def hide_break_overlay(self):
+        try:
+            self.break_panel.grid_remove()
+        except Exception:
+            pass
+        self.show_active_session()

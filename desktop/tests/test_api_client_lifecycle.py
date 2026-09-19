@@ -4,6 +4,7 @@ import respx
 
 from opentype_tutor.controllers.auth_controller import AuthController
 from opentype_tutor.controllers.base import AppState
+from opentype_tutor.controllers.session_controller import SessionController
 from opentype_tutor.services import (
     ApiClient,
     AuthService,
@@ -142,3 +143,59 @@ class TestApiClientLifecycle:
         ok, err = await controller.register("Test User", "test@example.com", "pass12345")
         assert ok is False
         assert err
+
+    async def test_get_practice_status_parses_pacing_contract(self):
+        # RN33 - SessionService.get_practice_status parses o contrato camelCase
+        with respx.mock:
+            respx.get("http://test/me/practice-status").mock(
+                return_value=httpx.Response(
+                    200,
+                    json={
+                        "accumulatedActiveMs": 925000,
+                        "practiceBlockMs": 900000,
+                        "minBreakMs": 180000,
+                        "breakRequired": True,
+                        "breakRemainingMs": 45000,
+                    },
+                )
+            )
+            client = ApiClient(base_url="http://test")
+            async with client:
+                service = SessionService(client)
+                status = await service.get_practice_status()
+        assert status.break_required is True
+        assert status.break_remaining_ms == 45000
+        assert status.accumulated_active_ms == 925000
+
+    async def test_session_controller_practice_status_requires_auth(self):
+        # RN33 - sem usuário autenticado, controller não consulta o serviço
+        client = ApiClient(base_url="http://test")
+        controller = SessionController(AppState())
+        async with client:
+            controller.set_services(
+                AuthService(client),
+                LessonService(client),
+                SessionService(client),
+                ProgressService(client),
+            )
+            assert await controller.get_practice_status() is None
+
+    async def test_session_controller_practice_status_on_network_error_returns_none(self):
+        # RN33 - falha de rede não bloqueia: o backend reimpõe via BREAK_REQUIRED
+        with respx.mock:
+            respx.get("http://test/me/practice-status").mock(
+                side_effect=httpx.ConnectError("network down")
+            )
+            client = ApiClient(base_url="http://test")
+            controller = SessionController(AppState())
+            controller.app_state.current_user = type(
+                "FakeUser", (), {"id": USER_ID}
+            )()
+            async with client:
+                controller.set_services(
+                    AuthService(client),
+                    LessonService(client),
+                    SessionService(client),
+                    ProgressService(client),
+                )
+                assert await controller.get_practice_status() is None

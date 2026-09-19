@@ -1,4 +1,4 @@
-import type { GetUserProgressDTO, KeyPerformanceDTO } from '@/models/progress';
+import type { GetUserProgressDTO, KeyPerformanceDTO, ResetProgressResponseDTO } from '@/models/progress';
 import type { ApiClient } from '@/services/api-client';
 
 export class ProgressController {
@@ -10,5 +10,9 @@ export class ProgressController {
 
   async getKeyPerformance(token: string): Promise<KeyPerformanceDTO[]> {
     return this.api.getKeyPerformance(token);
+  }
+
+  async resetProgress(token: string): Promise<ResetProgressResponseDTO> {
+    return this.api.resetProgress(token);
   }
 }

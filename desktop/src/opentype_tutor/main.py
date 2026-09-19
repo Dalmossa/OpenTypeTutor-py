@@ -295,6 +295,13 @@ class OpenTypeTutorApp(BaseWindow):
         )
         self._show_screen(screen)
 
+        # RN33 - pausa obrigatória: consulta o pacing e, se houver pausa pendente,
+        # mostra o overlay com countdown antes de liberar o Start. O backend também
+        # impõe a regra (BREAK_REQUIRED 409) caso a consulta falhe ou ignore.
+        practice_status = await self.session_controller.get_practice_status()
+        if practice_status is not None and practice_status.break_required and practice_status.break_remaining_ms > 0:
+            await screen.wait_for_break(practice_status.break_remaining_ms)
+
         success, error = await self.session_controller.start_session(lesson.id)
         if not success:
             logger.error(f"Falha ao iniciar sessão: {error}")

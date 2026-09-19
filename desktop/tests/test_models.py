@@ -2,7 +2,7 @@ import pytest
 
 from opentype_tutor.models.auth import LoginRequest, RegisterRequest
 from opentype_tutor.models.lesson import Difficulty, Lesson, LessonType
-from opentype_tutor.models.progress import MasteryState
+from opentype_tutor.models.progress import MasteryState, PracticeStatus
 from opentype_tutor.models.session import SessionStatus
 from opentype_tutor.utils.helpers import calculate_accuracy, calculate_wpm, format_duration
 from opentype_tutor.utils.keyboard_layout import get_composed_char, get_layout, is_dead_key
@@ -42,6 +42,36 @@ class TestModels:
         assert MasteryState.UNKNOWN == "UNKNOWN"
         assert MasteryState.LEARNING == "LEARNING"
         assert MasteryState.MASTERED == "MASTERED"
+
+    def test_practice_status_parses_camel_contract(self):
+        # RN33 - contrato camelCase do GET /me/practice-status
+        status = PracticeStatus.model_validate(
+            {
+                "accumulatedActiveMs": 610000,
+                "practiceBlockMs": 900000,
+                "minBreakMs": 180000,
+                "breakRequired": True,
+                "breakRemainingMs": 72000,
+            }
+        )
+        assert status.accumulated_active_ms == 610000
+        assert status.practice_block_ms == 900000
+        assert status.min_break_ms == 180000
+        assert status.break_required is True
+        assert status.break_remaining_ms == 72000
+
+    def test_practice_status_defaults_without_break(self):
+        status = PracticeStatus.model_validate(
+            {
+                "accumulatedActiveMs": 300000,
+                "practiceBlockMs": 900000,
+                "minBreakMs": 180000,
+                "breakRequired": False,
+                "breakRemainingMs": 0,
+            }
+        )
+        assert status.break_required is False
+        assert status.break_remaining_ms == 0
 
 
 class TestKeyboardLayout:

@@ -111,6 +111,9 @@ export default function LessonsPage(): ReactNode {
   const isInSession = session.phase !== 'idle';
 
   if (isInSession) {
+    if (session.phase === 'break') {
+      return <BreakOverlay remainingMs={session.breakRemainingMs} />;
+    }
     return (
       <div className="flex flex-col gap-2">
         <h1 className="text-2xl font-bold">{session.lesson?.title ?? 'Sessão de digitação'}</h1>
@@ -417,4 +420,25 @@ function ErgonomicCheckModal({
 
 function user(): { id: string } | null {
   throw new Error('unused');
+}
+
+// RN33 - overlay de pausa obrigatória: countdown até liberar o Start.
+// breakRemainingMs vem do servidor (já deduzido); nenhuma RN no cliente.
+function BreakOverlay({ remainingMs }: { remainingMs: number }): ReactNode {
+  const totalSeconds = Math.max(0, Math.ceil(remainingMs / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return (
+    <div className="flex flex-col items-center gap-4 py-16 text-center">
+      <h2 className="text-2xl font-bold">Hora de descansar</h2>
+      <p className="max-w-md text-slate-600">
+        Apoie as mãos no colo e alongue os braços e as pernas. A pausa é importante
+        para prevenir desconforto — beba água e mexa o corpo.
+      </p>
+      <p className="text-sm text-slate-400">A próxima lição estará disponível em</p>
+      <p className="font-mono text-4xl font-bold text-indigo-600">
+        {`${minutes}:${String(seconds).padStart(2, '0')}`}
+      </p>
+    </div>
+  );
 }

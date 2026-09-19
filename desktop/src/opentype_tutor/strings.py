@@ -27,6 +27,12 @@ REST_STATE_LABELS: dict[str, str] = {
     "COMPLETED": "Concluída",
 }
 
+# RN33 - pausa obrigatória entre blocos de prática
+BREAK_TITLE = "Hora de descansar"
+BREAK_INSTRUCTION = "Apoie as mãos no colo e alongue os braços e as pernas."
+BREAK_TIP = "A pausa é importante para prevenir desconforto. Beba água e mexa o corpo."
+BREAK_AVAILABLE_IN = "A próxima lição estará disponível em"
+
 
 def lesson_type_label(value: LessonType) -> str:
     return LESSON_TYPE_LABELS.get(value, value.value)
