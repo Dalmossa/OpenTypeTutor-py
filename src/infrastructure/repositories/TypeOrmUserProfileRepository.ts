@@ -12,6 +12,7 @@ function toRow(profile: UserProfile): UserProfileRow {
     userId: profile.userId.value,
     activeLayout: profile.activeLayout.value,
     currentLevel: profile.currentLevel,
+    timezone: profile.timezone,
   };
 }
 
@@ -20,6 +21,7 @@ function fromRow(row: UserProfileRow): UserProfile {
     userId: SessionIdValue.create(row.userId),
     activeLayout: LayoutValue.create(row.activeLayout),
     currentLevel: row.currentLevel,
+    timezone: row.timezone,
   });
 }
 

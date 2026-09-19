@@ -5,7 +5,10 @@ import { InMemoryKeyPerformanceRepository } from '../../infrastructure/repositor
 import { InMemoryProgressRepository } from '../../infrastructure/repositories/InMemoryProgressRepository.js';
 import { InMemoryLessonRepository } from '../../infrastructure/repositories/InMemoryLessonRepository.js';
 import { InMemoryPracticePacingRepository } from '../../infrastructure/repositories/InMemoryPracticePacingRepository.js';
+import { InMemoryDailyMetricsAggregateRepository } from '../../infrastructure/repositories/InMemoryDailyMetricsAggregateRepository.js';
+import { InMemoryUserProfileRepository } from '../../infrastructure/repositories/InMemoryUserProfileRepository.js';
 import { Lesson } from '../../domain/entities/Lesson.js';
+import { UserProfile } from '../../domain/entities/UserProfile.js';
 import { TypingSession } from '../../domain/entities/TypingSession.js';
 import { SessionId } from '../../domain/value-objects/SessionId.js';
 import { Layout } from '../../domain/value-objects/Layout.js';
@@ -56,6 +59,8 @@ describe('SubmitTypingSession', () => {
   let keyPerformanceRepository: InMemoryKeyPerformanceRepository;
   let progressRepository: InMemoryProgressRepository;
   let lessonRepository: InMemoryLessonRepository;
+  let aggregateRepository: InMemoryDailyMetricsAggregateRepository;
+  let userProfileRepository: InMemoryUserProfileRepository;
   let submitTypingSession: SubmitTypingSession;
   let sessionId: string;
 
@@ -67,13 +72,17 @@ describe('SubmitTypingSession', () => {
     keyPerformanceRepository = new InMemoryKeyPerformanceRepository();
     progressRepository = new InMemoryProgressRepository();
     lessonRepository = new InMemoryLessonRepository();
+    aggregateRepository = new InMemoryDailyMetricsAggregateRepository();
+    userProfileRepository = new InMemoryUserProfileRepository();
 
     submitTypingSession = new SubmitTypingSession(
       sessionRepository,
       keyPerformanceRepository,
       progressRepository,
       lessonRepository,
-      new InMemoryPracticePacingRepository()
+      new InMemoryPracticePacingRepository(),
+      aggregateRepository,
+      userProfileRepository
     );
 
     await lessonRepository.save(
@@ -233,6 +242,85 @@ describe('SubmitTypingSession', () => {
       await expect(
         submitTypingSession.execute({ userId: USER_ID, sessionId, keystrokes: validEvents })
       ).rejects.toThrow(InvalidSessionTransitionError);
+    });
+  });
+
+  describe('RN35/RN37 - Agregado diário de métricas', () => {
+    it('RN35 - submit popula o agregado diário com contadores e teclas do dia', async () => {
+      vi.advanceTimersByTime(12000);
+
+      const result = await submitTypingSession.execute({ userId: USER_ID, sessionId, keystrokes: validEvents });
+
+      const day = await aggregateRepository.findByKey(
+        SessionId.create(USER_ID),
+        Layout.create('ABNT2'),
+        '2023-12-31' // 2024-01-01T00:00Z em America/Sao_Paulo → dia 31/12/2023 (RN37)
+      );
+      expect(day).not.toBeNull();
+      expect(day?.sessionsCompleted).toBe(1);
+      expect(day?.totalGrossChars).toBe(result.metrics.charactersTyped);
+      expect(day?.totalCorrectChars).toBe(result.metrics.correctCharacters);
+      expect(day?.totalErrors).toBe(result.metrics.incorrectCharacters);
+      expect(day?.keysPracticed.sort()).toEqual(['a', 'b', 'c', 'd', 'e', 'x', 'y']);
+    });
+
+    it('RN14 - submit duplicado não duplica o agregado diário', async () => {
+      vi.advanceTimersByTime(12000);
+
+      await submitTypingSession.execute({ userId: USER_ID, sessionId, keystrokes: validEvents });
+      await submitTypingSession.execute({ userId: USER_ID, sessionId, keystrokes: [] });
+
+      const day = await aggregateRepository.findByKey(
+        SessionId.create(USER_ID),
+        Layout.create('ABNT2'),
+        '2023-12-31'
+      );
+      expect(day?.sessionsCompleted).toBe(1);
+    });
+
+    it('RN22 - sessão com dados insuficientes não entra no agregado', async () => {
+      vi.advanceTimersByTime(1000);
+
+      const sixEvents = [
+        keystroke('a', 'CORRECT', 1),
+        keystroke('b', 'CORRECT', 2),
+        keystroke('c', 'CORRECT', 3),
+        keystroke('a', 'CORRECT', 4),
+        keystroke('b', 'CORRECT', 5),
+        keystroke('c', 'CORRECT', 6),
+      ];
+
+      await submitTypingSession.execute({ userId: USER_ID, sessionId, keystrokes: sixEvents });
+
+      const day = await aggregateRepository.findByKey(
+        SessionId.create(USER_ID),
+        Layout.create('ABNT2'),
+        '2023-12-31'
+      );
+      expect(day).toBeNull();
+    });
+
+    it('RN37 - data do agregado respeita o fuso do perfil do usuário', async () => {
+      vi.advanceTimersByTime(12000);
+      await userProfileRepository.save(
+        UserProfile.create({ userId: SessionId.create(USER_ID), timezone: 'Pacific/Kiritimati' })
+      );
+
+      await submitTypingSession.execute({ userId: USER_ID, sessionId, keystrokes: validEvents });
+
+      const utcDay = await aggregateRepository.findByKey(
+        SessionId.create(USER_ID),
+        Layout.create('ABNT2'),
+        '2023-12-31'
+      );
+      expect(utcDay).toBeNull();
+
+      const kiritimatiDay = await aggregateRepository.findByKey(
+        SessionId.create(USER_ID),
+        Layout.create('ABNT2'),
+        '2024-01-01'
+      );
+      expect(kiritimatiDay?.sessionsCompleted).toBe(1);
     });
   });
 

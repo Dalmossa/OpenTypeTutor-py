@@ -31,6 +31,10 @@ export const adaptiveParams = {
   MPI_BAND_FAR_THRESHOLD: 0.2,
   MPI_BAND_CLOSE_THRESHOLD: 0.5,
   MPI_BAND_VERGE_THRESHOLD: 0.8,
+
+  // RN22 - janela de dados insuficiente: sessão com menos de 3s ativos ou 5 caracteres não gera WPM
+  INSUFFICIENT_DATA_MIN_DURATION_MS: 3000,
+  INSUFFICIENT_DATA_MIN_CHARS: 5,
 } as const;
 
 export type AdaptiveParams = typeof adaptiveParams;

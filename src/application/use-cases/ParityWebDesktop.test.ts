@@ -5,6 +5,8 @@ import { InMemoryKeyPerformanceRepository } from '../../infrastructure/repositor
 import { InMemoryProgressRepository } from '../../infrastructure/repositories/InMemoryProgressRepository.js';
 import { InMemoryLessonRepository } from '../../infrastructure/repositories/InMemoryLessonRepository.js';
 import { InMemoryPracticePacingRepository } from '../../infrastructure/repositories/InMemoryPracticePacingRepository.js';
+import { InMemoryDailyMetricsAggregateRepository } from '../../infrastructure/repositories/InMemoryDailyMetricsAggregateRepository.js';
+import { InMemoryUserProfileRepository } from '../../infrastructure/repositories/InMemoryUserProfileRepository.js';
 import { Lesson } from '../../domain/entities/Lesson.js';
 import { TypingSession } from '../../domain/entities/TypingSession.js';
 import { SessionId } from '../../domain/value-objects/SessionId.js';
@@ -98,7 +100,9 @@ describe('TASK-081 - Paridade web vs desktop MÉTRICAS', () => {
       keyPerformanceRepository,
       progressRepository,
       lessonRepository,
-      new InMemoryPracticePacingRepository()
+      new InMemoryPracticePacingRepository(),
+      new InMemoryDailyMetricsAggregateRepository(),
+      new InMemoryUserProfileRepository()
     );
 
     await lessonRepository.save(

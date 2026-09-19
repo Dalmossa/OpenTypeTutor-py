@@ -12,6 +12,7 @@ import { TypeOrmKeyPerformanceRepository } from './infrastructure/repositories/T
 import { TypeOrmProgressRepository } from './infrastructure/repositories/TypeOrmProgressRepository.js';
 import { TypeOrmProgressCardRepository } from './infrastructure/repositories/TypeOrmProgressCardRepository.js';
 import { TypeOrmPracticePacingRepository } from './infrastructure/repositories/TypeOrmPracticePacingRepository.js';
+import { TypeOrmDailyMetricsAggregateRepository } from './infrastructure/repositories/TypeOrmDailyMetricsAggregateRepository.js';
 import { InMemoryNGramRepository } from './infrastructure/repositories/InMemoryNGramRepository.js';
 import { BcryptPasswordHasher } from './infrastructure/auth/BcryptPasswordHasher.js';
 import { AuthPasswordValidator } from './infrastructure/auth/AuthPasswordValidator.js';
@@ -67,6 +68,7 @@ async function bootstrap(): Promise<void> {
   const progressRepository = new TypeOrmProgressRepository(dataSource);
   const progressCardRepository = new TypeOrmProgressCardRepository(dataSource);
   const pacingRepository = new TypeOrmPracticePacingRepository(dataSource);
+  const dailyAggregateRepository = new TypeOrmDailyMetricsAggregateRepository(dataSource);
 
   const passwordHasher = new BcryptPasswordHasher();
   const passwordValidator = new AuthPasswordValidator();
@@ -91,7 +93,9 @@ async function bootstrap(): Promise<void> {
       keyPerformanceRepository,
       progressRepository,
       lessonRepository,
-      pacingRepository
+      pacingRepository,
+      dailyAggregateRepository,
+      userProfileRepository
     ),
     [TOKENS.GET_REINFORCEMENT_LESSON]: new GetReinforcementLesson(
       userProfileRepository,

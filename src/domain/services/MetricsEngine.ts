@@ -23,7 +23,9 @@ export class MetricsEngine {
 
     const activeDurationMinutes = MetricsEngine.getActiveDurationMinutes(activeDurationMs);
 
-    const isInsufficient = activeDurationMs < 3000 || charactersTyped < 5;
+    const isInsufficient =
+      activeDurationMs < adaptiveParams.INSUFFICIENT_DATA_MIN_DURATION_MS ||
+      charactersTyped < adaptiveParams.INSUFFICIENT_DATA_MIN_CHARS;
 
     let grossWpm = 0;
     let netWpm = 0;

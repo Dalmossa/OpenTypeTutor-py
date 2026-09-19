@@ -8,6 +8,7 @@ import { InMemoryUserProfileRepository } from '../../infrastructure/repositories
 import { InMemoryKeyPerformanceRepository } from '../../infrastructure/repositories/InMemoryKeyPerformanceRepository.js';
 import { InMemoryProgressRepository } from '../../infrastructure/repositories/InMemoryProgressRepository.js';
 import { InMemoryPracticePacingRepository } from '../../infrastructure/repositories/InMemoryPracticePacingRepository.js';
+import { InMemoryDailyMetricsAggregateRepository } from '../../infrastructure/repositories/InMemoryDailyMetricsAggregateRepository.js';
 import { Lesson } from '../../domain/entities/Lesson.js';
 import { TypingSession } from '../../domain/entities/TypingSession.js';
 import { PracticePacingState } from '../../domain/entities/PracticePacingState.js';
@@ -82,7 +83,9 @@ describe('RN33 - Pacing de prática', () => {
       keyPerformanceRepository,
       progressRepository,
       lessonRepository,
-      pacingRepository
+      pacingRepository,
+      new InMemoryDailyMetricsAggregateRepository(),
+      profileRepository
     );
     getPracticeStatus = new GetPracticeStatus(pacingRepository);
 

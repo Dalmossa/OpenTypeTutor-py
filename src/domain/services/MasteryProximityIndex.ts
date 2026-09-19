@@ -10,6 +10,7 @@ export type MasteryProximityBand = 'longe' | 'em progresso' | 'próximo' | 'às 
 // com latTerm = 0 se averageLatencyMs = 0 (sem dados de latência não credita),
 // senão clamp(1 − averageLatencyMs/MASTERY_LATENCY_MS, 0, 1). Σw = 1 (PRD §26).
 // Monotônico e em [0,1]; satura em 1,0 conforme os 4 gates do RN09 são satisfeitos.
+// eslint-disable-next-line @typescript-eslint/no-extraneous-class
 export class MasteryProximityIndex {
   static compute(kp: KeyPerformance): number {
     if (kp.attempts === 0) {

@@ -3,12 +3,16 @@ import type { IKeyPerformanceRepository } from '../../domain/repositories/IKeyPe
 import type { IProgressRepository } from '../../domain/repositories/IProgressRepository.js';
 import type { ILessonRepository } from '../../domain/repositories/ILessonRepository.js';
 import type { IPracticePacingRepository } from '../../domain/repositories/IPracticePacingRepository.js';
+import type { IDailyMetricsAggregateRepository } from '../../domain/repositories/IDailyMetricsAggregateRepository.js';
+import type { IUserProfileRepository } from '../../domain/repositories/IUserProfileRepository.js';
 import type { TypingSession } from '../../domain/entities/TypingSession.js';
 import { KeyPerformance } from '../../domain/entities/KeyPerformance.js';
 import { KeystrokeEvent } from '../../domain/entities/KeystrokeEvent.js';
 import { Progress } from '../../domain/entities/Progress.js';
 import { PracticePacingState } from '../../domain/entities/PracticePacingState.js';
+import { DailyMetricsAggregate } from '../../domain/entities/DailyMetricsAggregate.js';
 import { SessionId } from '../../domain/value-objects/SessionId.js';
+import { Timezone } from '../../domain/value-objects/Timezone.js';
 import { MetricsEngine } from '../../domain/services/MetricsEngine.js';
 import { ProgressionEngine } from '../../domain/services/ProgressionEngine.js';
 import { adaptiveParams } from '../../domain/config/adaptiveParams.js';
@@ -27,6 +31,8 @@ export class SubmitTypingSession {
     private readonly progressRepository: IProgressRepository,
     private readonly lessonRepository: ILessonRepository,
     private readonly pacingRepository: IPracticePacingRepository,
+    private readonly aggregateRepository: IDailyMetricsAggregateRepository,
+    private readonly userProfileRepository: IUserProfileRepository,
     private readonly now: Clock = () => new Date()
   ) {}
 
@@ -69,7 +75,43 @@ export class SubmitTypingSession {
       pacing.recordCompletedSession(metrics.activeDurationMs, this.now())
     );
 
+    await this.applyDailyAggregate(sessionWithEvents, metrics);
+
     return this.toResponse(finalizedSession);
+  }
+
+  // RN35 - mantém o agregado diário pré-computado por (userId, layout, date local RN37).
+  // RN14: idempotente — sessões COMPLETED retornam cacheado lá em cima; RN13/RN22: ABANDONED e
+  // dados insuficientes (RN22) não entram no agregado.
+  private async applyDailyAggregate(
+    session: TypingSession,
+    metrics: ReturnType<typeof MetricsEngine.calculate>
+  ): Promise<void> {
+    if (
+      metrics.activeDurationMs < adaptiveParams.INSUFFICIENT_DATA_MIN_DURATION_MS ||
+      metrics.charactersTyped < adaptiveParams.INSUFFICIENT_DATA_MIN_CHARS
+    ) {
+      return;
+    }
+
+    const profile = await this.userProfileRepository.findByUserId(session.userId);
+    const timezone =
+      profile !== null ? Timezone.create({ value: profile.timezone }) : Timezone.createDefault();
+    const localDate = timezone.toLocalDateKey(this.now());
+
+    const keys = session.keystrokes
+      .filter((keystroke) => !keystroke.isControlKey())
+      .map((keystroke) => keystroke.logicalKey);
+
+    const existing =
+      (await this.aggregateRepository.findByKey(session.userId, session.layout, localDate)) ??
+      DailyMetricsAggregate.create({
+        userId: session.userId,
+        layout: session.layout,
+        date: localDate,
+      });
+
+    await this.aggregateRepository.save(existing.merge(metrics, keys));
   }
 
   private async applyKeystrokePerformance(session: TypingSession): Promise<void> {

@@ -14,3 +14,5 @@ export { ProgressCardEntity } from './ProgressCardEntity.js';
 export type { ProgressCardRow } from './ProgressCardEntity.js';
 export { PracticePacingEntity } from './PracticePacingEntity.js';
 export type { PracticePacingRow } from './PracticePacingEntity.js';
+export { DailyMetricsAggregateEntity } from './DailyMetricsAggregateEntity.js';
+export type { DailyMetricsAggregateRow } from './DailyMetricsAggregateEntity.js';
