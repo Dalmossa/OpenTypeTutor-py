@@ -20,6 +20,17 @@ export const adaptiveParams = {
   // RN33 - pacing de prática: bloco de 15 min de prática ativa → pausa mínima de 3 min
   PRACTICE_BLOCK_DURATION_MS: 900000,
   MIN_BREAK_DURATION_MS: 180000,
+
+  // RN36 - MasteryProximityIndex: pesos da distância à maestria (Σ = 1, PRD §26)
+  MPI_W_ACCURACY: 0.35,
+  MPI_W_LATENCY: 0.25,
+  MPI_W_STREAK: 0.25,
+  MPI_W_ATTEMPTS: 0.15,
+
+  // RN36 - faixas do índice para a UI (nunca cor sozinha — rótulo junto)
+  MPI_BAND_FAR_THRESHOLD: 0.2,
+  MPI_BAND_CLOSE_THRESHOLD: 0.5,
+  MPI_BAND_VERGE_THRESHOLD: 0.8,
 } as const;
 
 export type AdaptiveParams = typeof adaptiveParams;
