@@ -539,3 +539,76 @@ Regras de dependência da apresentação:
 
 **Referências:**
 * `ADR.md` ADR-016 (migração web), ADR-017 (POO/reuso), ADR-003/005 (Clean Architecture — backend permanece); `SRD.md` §1.2/§3; `desktop/src/opentype_tutor/` (estrutura `models/views/controllers/services`); `BACKLOG.md` TASK-083; `PRD.md` RN14, RN16/RN17, RN22
+
+---
+
+## ADR-019 — Pacing de prática: bloco de 15 min de prática ativa → pausa mínima de 3 min (RN33)
+
+**Data:** 2026-09-17
+**Responsável:** Dalmo Pereira
+**Status:** Aceito
+
+**Contexto:** O PRD já trata saúde como regra de domínio (RN24 check-in ergonômico, RN28 regra de segurança por desconforto, RN30 lembrete de pausa no fechamento), mas a prática de digitação não é **pausada por tempo**: o usuário pode encadear lições indefinidamente, e a orientação "pausas a cada 30–60 min" é apenas texto. O feedback de produto pede um pacing mensurável: a cada 15 minutos de prática ativa, uma pausa mínima de 3 minutos (alongar os braços, beber água, ativar a circulação) antes de iniciar a próxima lição — com foco em condicionamento físico e concentração. **Requisito decidido em conjunto:** a lição em curso nunca é interrompida; se o bloco de 15 min estourar no meio de uma lição, ela conclui normalmente e a pausa vale a partir da conclusão.
+
+**Decisão:** Introduzir a **RN33** (PRD §27), implementada como política de domínio no backend e consumida via REST pelos dois clientes (desktop e web):
+* **Domínio:** nova entidade `PracticePacingState` (por `userId`): `accumulatedActiveMs` (desde o início do bloco) e `lastSessionEndedAt` (fim da última sessão completada). Lógica pura: `recordCompletedSession`, `isBreakRequired(now)`, `breakRemainingMs(now)`, `startNewBlock(now)` — todo relógio injetado (testável sem espera real).
+* **Parâmetros:** `PRACTICE_BLOCK_DURATION_MS = 900000` e `MIN_BREAK_DURATION_MS = 180000` centralizados em `domain/config/adaptiveParams.ts` (ADR-006 — nunca literais inline).
+* **Porta:** `IPracticePacingRepository` (ADR-005) com `findByUserId`/`save`; implementações `InMemory` (testes) e `TypeORM` (SQLite, `practice_pacing`), isoladas por `userId` (RN17).
+* **Enforcement no ciclo de sessão:** `StartTypingSession` recusa **criar** uma sessão quando o bloco está estourado e a pausa não completou — `BreakRequiredError` → `BREAK_REQUIRED` (409, catálogo §28.5); `SubmitTypingSession` acumula a prática ativa da sessão recém-concluída (apenas na primeira conclusão — RN14 idempotência preservada; sessões `ABANDONED` não acumulam — RN13). Nenhum estado de sessão em curso é alterado pela política.
+* **Consulta para a UI:** `GetPracticeStatus` em `GET /me/practice-status` devolve `{ accumulatedActiveMs, practiceBlockMs, minBreakMs, breakRequired, breakRemainingMs }` — os clientes **não** reimplementam a regra nem hardcodam os limites; apenas cronometram a pausa restante (ADR-018: nenhuma RN na apresentação).
+* **Bloco novo após pausa:** ao iniciar uma sessão permitida com `accumulatedActiveMs ≥ bloco` (pausa já cumprida), o acumulador zera — nova sequência 15:3. Contagem por dia calendário local, reiniciada automaticamente (o acumulador vive no estado persistido e é comparado ao relógio).
+
+**Justificativa:** micro-pausas curtas reduzem fadiga e desconforto musculoesquelético e o leve descanso favorece a retomada da atenção — alinha-se à metodologia ergonômica já assumida (NR17, RN24/RN28). Colocar a regra no domínio (e não no cliente) permite reuso entre desktop e web, teste determinístico (TDD) e rastreabilidade — a UI apenas reflete o estado; a decisão de health/pacing permanece no backend, coerente com ADR-018 (nenhuma RN na apresentação).
+
+**Alternativas consideradas:**
+* Timer só no cliente (duplicado em desktop e web) — descartado: política em dois lugares sem rastreio nem teste, divergência silenciosa e viola o espírito do ADR-018.
+* Backend apenas valida, clientes cronometram o 15 min — o requisito em discussão foi a favor do backend mandar o acumulado e o tempo restante, mantendo os clientes simples e consistentes.
+* Interromper a lição ao estourar o bloco ("Dentro da lição") — descartado: o requisito decide que a lição em curso sempre conclui; interromper geraria sessão incompleta e adicionaria transições de estado desnecessárias (`TypingSession` só pausa por ação do usuário).
+
+**Consequências:**
+* (+) RN33 rastreável e testável (domain + use case + endpoint); clientes simples (só mostram estado/countdown).
+* (+) `StartTypingSession` e `SubmitTypingSession` ganham um dependência (`IPracticePacingRepository` + relógio injetável) — todos os pontos de composição e testes precisam ser atualizados.
+* (−) Sessões longas (>15 min ativos) não geram pausa intermediária por decisão de requisito; o break só vale entre lições.
+* (−) Nova tabela `practice_pacing` e migração; estado por usuário adicional para persistir.
+* (0) RNF06 não é afetado: o caminho `submit` ganha apenas uma WRITE extra (~µs) no SQLite; o budget de 150ms (p95) não é tensionado por RN33 — sem necessidade de redesenhar o bench.
+
+**Referências:**
+* `PRD.md` RN33 (§27), §26 (params), §28.5 (`BREAK_REQUIRED`); `CONSTITUTION.md` §5 (SDD); `ADR.md` ADR-006 (params), ADR-005 (ports), ADR-018 (sem RN na apresentação); `BACKLOG.md` TASK-089+ (fase de implementação)
+
+---
+
+## ADR-020 — Dashboard do progresso: agregação pré-computada no backend + Recharts no cliente (RN34–RN37, RNF11)
+
+**Data:** 2026-09-18
+**Responsável:** Dalmo Pereira
+**Status:** Aceito
+
+**Contexto:** A Fase 9 adiciona ao painel `Dashboard` três rotas `GET /me/dashboard/*` consumindo: (a) série diária de evolução (PPM, precisão, latência) em janelas 7/30/90 dias (RN35), (b) mapa de calor de teclas em 7 dias (RN34), (c) proximidade de cada tecla à maestria via `MasteryProximityIndex` (RN36) e (d) transições de mastery ao longo do tempo. Duas decisões emergem: **como agregar** os dados de sessão sem estourar performance com 1 ano de histórico (RNF11: `p95 ≤ 500ms` para 52 semanas por usuário) e **qual biblioteca** desenhar os gráficos no cliente web.
+
+**Decisão:**
+1. **Agregação pré-computada no backend.** Nova entidade de domínio `DailyMetricsAggregate` (por `userId + layout + date` local) persistida em tabela própria (`daily_metrics_aggregate`), mantida no caminho do `SubmitTypingSession` (upsert idempotente — RN14 não duplica no re-submit; sessões `ABANDONED`/`insufficient-data` não entram — RN13/RN22). O agregado guarda **contadores somáveis** (`sessionsCompleted`, `totalActiveMs`, `totalGrossChars`, `totalCorrectChars`, `totalErrors`, `totalLatencyMs`, `totalLatencySamples`, `keysPracticed` únicos do dia) — as métricas do dia (netWpm, precisão, latência média) são **derivadas** dos contadores na leitura. O dashboard **nunca varre sessões por request**: lê `SUM/COUNT` dos agregados por janela → satura RNF11. `UserProfile.timezone` (IANA, default `America/Sao_Paulo`) define o "dia" local de cada agregado (RN37).
+2. **Log de transições de mastery `KeyMasteryTransition`.** Upendada no `KeyPerformance.recordSessionEnd` **somente quando** o `masteryState` muda (`{userId, logicalKey, layout, date, from, to}`) — raro por natureza; alimenta a linha do tempo de mastery sem varrer sessões.
+3. **Gráficos no cliente com Recharts.** Biblioteca React declarativa, leve (sem dependência Canvas/Babylon), com acessibilidade e responsividade adequadas ao Next.js já adotado (ADR-016). Os 8 widgets do `/app/dashboard` (cards KPI, 3 linhas de evolução, teclado heatmap, lista de proximidade, timeline de transições, distribuição de estados) apenas **renderizam** os DTOs pré-agregados — nenhuma RN no cliente (ADR-018); cores sempre acompanhadas de rótulos (acessibilidade, RN36 faixas).
+4. **Pesos do `MasteryProximityIndex` (RN36):** `w_accuracy=0.35`, `w_latency=0.25`, `w_streak=0.25`, `w_attempts=0.15` — recomendados e validados pela rodada do Bloco 0.5 (precedente RN04: correção domina, velocidade em 2º, volume/gate em último; literatura de mastery learning: volume é gate, não sinal de proficiência). Sempre em `adaptiveParams.ts` (`MPI_*`, §26) — nunca inline (ADR-006).
+
+**Justificativa:**
+* **Performance:** agregação por request (filtrar 10⁴–10⁵ sessões, somar e derivar métricas) não atende `p95 ≤ 500ms` em SQLite de arquivo com 1 ano de dados; pré-computar converte a leitura do dashboard em poucas linhas de agregados (52 semanais → 365 diárias/ano).
+* **RNF06 preservado:** o `submit` ganha 1 WRITE (upsert) por primeira conclusão — mesma magnitude de RN33/ADR-019; o orçamento de 150ms não é tensionado.
+* **Testabilidade TDD:** o agregado é domínio puro (somas/derivações, relógio e timezone injetáveis) — consistente com ADR-003/005.
+* **Recharts:** padrão de mercado para séries temporais em React, sem lock-in de fornecedor e sem camada canvas/mobile extra; independence da stack Next já assumida (ADR-016), reduzindo superfície de dependência em relação a alternativas (Chart.js, D3 raw, Nivo).
+
+**Alternativas consideradas:**
+* **Agregação sob demanda por request** (SQL `GROUP BY` sobre sessões na hora) — descartada: varredura O(histórico) por view por janela, custo cresce com o tempo, não atinge RNF11 no pior caso de 1 ano.
+* **Agregação em memória/cache** (LRU por usuário, invalidação no submit) — descartada: materialização simples + determinística no store é mais simples de manter, testar e re-gerar (reset de progresso RN31) do que invalidação de cache; RNF11 medida sem cache externo (mesmo espírito do RNF06).
+* **Chart.js / D3 / Nivo** — Chart.js: canvas, menos tipada no ecossistema TSR; D3 raw: verboso para 8 widgets; Nivo: camada sobre D3 com mais indireção. Recharts: SVG + declarativo, JSX-aligned com o codebase.
+* **Desktop (customtkinter) com gráficos** — fora do escopo da Fase 9: o painel avançado é web-first (ADR-016); o desktop mantém a tela estática de progresso atual.
+
+**Consequências:**
+* (+) RNF11 rastreável e verificável (`bench:dashboard`, seed 52 semanas); RNF06 revalidado (submit +1 WRITE upsert).
+* (+) Dashboard determinístico e pré-decidível; reset de progresso (RN31) deve limpar também os agregados e o log de transições (estendido no TASK-097).
+* (−) Duas tabelas novas (`daily_metrics_aggregate`, `key_mastery_transition`) + campo `timezone` em `user_profile` e migração.
+* (−) `SubmitTypingSession` e `KeyPerformance.recordSessionEnd` ganham dependências novas (portas `IDailyMetricsAggregateRepository`/`IKeyMasteryTransitionRepository`) — pontos de composição e testes atualizados.
+* (0) Nenhuma RN no cliente (ADR-018); o web apenas renderiza DTOs pré-agregados.
+
+**Referências:**
+* `PRD.md` RN34–RN37 (§27), §26 (params `MPI_*`/`DASHBOARD_*`), §28.1 (RNF11), §28.4 (conflito RNF06×RNF11), §29, §30 (FASE 9); `CONSTITUTION.md` §5 (SDD); `ADR.md` ADR-006 (params), ADR-005 (ports), ADR-016 (Next), ADR-018 (sem RN na apresentação), ADR-019 (padrão de WRITE extra no submit); `BACKLOG.md` TASK-092–100

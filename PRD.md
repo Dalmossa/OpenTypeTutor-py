@@ -1,7 +1,7 @@
 # Product Requirements Document (PRD)
 ## OpenType Tutor — Backend REST API
 
-**Versão:** 1.4
+**Versão:** 1.6
 **Status:** Ativo — pronto para implementação completa (Domain Core + Infrastructure), pendências "A VALIDAR" resolvidas (ADR-010)
 **Tipo:** Product Requirements Document (PRD)
 **Arquitetura:** Clean Architecture + DDD + SOLID
@@ -11,6 +11,8 @@
 **Nota de proveniência:** este documento inicia um projeto novo, em repositório próprio, que reaproveita e amadurece o modelo de domínio de um protótipo client-side anterior (SPA React + IndexedDB, mantido em outra pasta e fora do escopo deste documento). Nenhuma decisão de arquitetura do protótipo anterior é herdada automaticamente — todas as decisões de stack deste projeto estão registradas do zero em `ADR.md`.
 
 **Changelog:**
+* v1.6 → Adiciona a **Fase 9 — Dashboard do progresso** (RN34–RN37, RNF11, ADR-020): mapa de calor de teclas (RN34), tendência de evolução por período (WPM/acurácia/latência, RN35), **MasteryProximityIndex** ([0,1] por tecla com pesos `w_accuracy=0.35`/`w_latency=0.25`/`w_streak=0.25`/`w_attempts=0.15` recomendados e validados — RN36) e fuso horário do usuário para agregação por dia calendário local (`UserProfile.timezone`, default `America/Sao_Paulo` — RN37). Parametriza `MPI_*`/`DAILY_*` em §26, adiciona RNF11 (produto, quantitativo: `p95 ≤ 500ms` para 1 ano de dados por semana, autocannon; resolução por agregação pré-computada — ADR-020) e adiciona FASE 9 a §30.
+* v1.5 → Adiciona **RN33 — Pacing de prática** (ergonomia por tempo): bloco de 15 minutos de prática ativa acumulada → pausa mínima de 3 minutos antes de iniciar nova sessão; a lição em curso nunca é interrompida. Parametriza `PRACTICE_BLOCK_DURATION_MS`/`MIN_BREAK_DURATION_MS` em §26 e adiciona `BREAK_REQUIRED` ao catálogo §28.5.
 * v1.4 → Auditoria de requisitos contra Sommerville (Cap. 6): adiciona §2.3 (Requisitos de Usuário, nível não técnico, obrigatórios "deve"/desejáveis "pode"); adiciona §27.1 (classificação de cada RN em funcional/não funcional/domínio, com prioridade, justificativa e fonte); reestrutura §28 em produto/organizacionais/externos com critérios verificáveis e adiciona §28.4 (conflitos conhecidos entre RNFs) — o catálogo de erros, antes §28.1, passa a §28.5; move as decisões de configuração (`BCRYPT_SALT_ROUNDS`, expirações JWT) para nota explícita em §13.3; parametriza os thresholds da RN22 (`MIN_SESSION_DURATION_MS`, `MIN_SESSION_CHARACTERS`) em §26; adiciona RNF09 (idioma, externo) e RNF10 (escopo externo pendente); e **alinha a Seção 26 ao estado entregue da Fase 3** (`JWT_EXPIRATION = 24h` substituído por `JWT_ACCESS_EXPIRATION = 15m` + `JWT_REFRESH_EXPIRATION = 30d`, conforme TASK-034a–d e ADR-013).
 * v1.3 → Fecha as avaliações de escopo pendentes (TASK-067/TASK-068): `ADR-013` avalia OAuth/login social, recuperação de senha por e-mail e rate limiting de login (§13.4) — OAuth e recuperação mantidos fora de escopo com gatilhos de reabertura objetivos; rate limiting **aprovado** (implementação em `TASK-073`) com a entrada `TOO_MANY_REQUESTS` (429) adicionada ao catálogo da Seção 28.5. `ADR-014` avalia a migração SQLite→PostgreSQL — permanece SQLite, com gatilhos objetivos de migração.
 * v1.2 → Adiciona RN23 (Fase 7/E2E): quando o usuário não possui teclas em pools selecionáveis de reforço (todas as teclas ainda `UNKNOWN`/`LEARNING`, pool com peso 0), a lição de reforço é gerada com as teclas praticadas — o endpoint `/me/reinforcement-lesson` nunca falha por falta de pool selecionável; o caso de teclas inexistentes (usuário sem nenhuma `KeyPerformance`) permanece `LESSON_NOT_FOUND` (não é atingido pelo motor).
@@ -97,6 +99,8 @@ Requisitos de usuário descrevem, em linguagem acessível a leitores não técni
 9. O sistema **deve** impedir acesso a recursos de outros usuários (resposta de autorização) e exigir autenticação em todos os endpoints protegidos.
 10. O sistema **deve** devolver sessões com dados insuficientes (muito curtas ou com poucos caracteres) sem métricas de desempenho calculadas.
 11. O sistema **deve** enviar respostas em formato JSON e erros em formato padronizado com código e mensagem (mensagens em pt-BR).
+12. O sistema **deve** permitir que o usuário limpe o próprio progresso para recomeçar o curso do zero (sessões, métricas por tecla, cartão de progresso e progresso curricular), mantendo a conta e o layout de teclado.
+13. O sistema **deve** exibir ao usuário um painel consolidado do próprio progresso: evolução de velocidade (PPM), precisão e latência ao longo do tempo, um mapa de calor das teclas praticadas, a proximidade de cada tecla à maestria e o fuso horário correto do dia calendário.
 
 ### 2.3.2 Desejáveis (pode) — fora do escopo desta versão
 
@@ -715,9 +719,33 @@ RECENCY_LAMBDA = 0.1
 REINFORCEMENT_TARGET_CHARACTERS = 150
 ACTIVE_DURATION_EPSILON_MS = 1000
 
+# RN32 — limiares de status visual por lição
+LESSON_MASTERY_ACCURACY = 0.95
+LESSON_REVIEW_ACCURACY = 0.60
+LESSON_REVIEW_MIN_ATTEMPTS = 2
+
 # Thresholds "insufficient-data" (RN22, parametrizados e nominais — nunca literais na lógica)
 MIN_SESSION_DURATION_MS = 3000
 MIN_SESSION_CHARACTERS = 5
+
+# RN33 — pacing de prática (bloco de 15 min de prática ativa → pausa mínima de 3 min)
+PRACTICE_BLOCK_DURATION_MS = 900000
+MIN_BREAK_DURATION_MS = 180000
+
+# RN35 — janelas de tendência do dashboard (períodos agregáveis, em dias)
+DASHBOARD_TREND_WINDOWS_DAYS = [7, 30, 90]
+DASHBOARD_HEATMAP_WINDOW_DAYS = 7
+
+# RN36 — MasteryProximityIndex (pesos recomendados e validados — Bloco 0.5, ADR-020)
+MPI_W_ACCURACY = 0.35
+MPI_W_LATENCY  = 0.25
+MPI_W_STREAK   = 0.25
+MPI_W_ATTEMPTS = 0.15
+
+# RN36 — faixas do índice para a UI (nunca cor sozinha — rótulo junto)
+MPI_BAND_FAR_THRESHOLD = 0.20
+MPI_BAND_CLOSE_THRESHOLD = 0.50
+MPI_BAND_VERGE_THRESHOLD = 0.80
 
 # infrastructure/auth/authParams.ts — VALIDADO (valores de segurança, não de produto)
 BCRYPT_SALT_ROUNDS = 12
@@ -762,6 +790,13 @@ MIN_PASSWORD_LENGTH = 8
 | RN28 | Regra de segurança: ao relatar dor/formigamento/dormência, interromper IMEDIATAMENTE, orientar pausa/alongamento/hidratação, só retomar quando confirmar que passou — prioridade sobre qualquer meta |
 | RN29 | Variação de exercício antes de repetição idêntica: se critério de avanço falhar, oferecer variação do mesmo exercício antes de repetir — repetição idêntica sem ajuste gera tédio sem progresso |
 | RN30 | Fechamento de sessão obrigatório: resumo 2-3 linhas + emissão de Cartão de Progresso copiável + lembrete de pausa/alongamento |
+| RN31 | Reset de progresso: usuário pode limpar todo o próprio progresso (sessões, `KeyPerformance`, Cartão de Progresso e `Progress`) e voltar ao nível 1, mantendo a conta (credenciais) e o `activeLayout` — recurso isolado por `userId` (posse) |
+| RN32 | Status visual por lição: cada lição na lista recebe uma cor + ícone + rótulo baseado no desempenho do usuário — `MASTERED` (verde ✅) se `bestAccuracy ≥ 0,95`, `REVIEW` (vermelho ⚠) se `attempts ≥ 2` e `lastAccuracy < 0,60`, `PRACTICING` (âmbar 🔁) caso contrário, `NOT_STARTED` se sem tentativas; precedência: `Bloqueada` > `Próxima` > status visual — limiares em `LESSON_MASTERY_ACCURACY`, `LESSON_REVIEW_ACCURACY`, `LESSON_REVIEW_MIN_ATTEMPTS` (§26) |
+| RN33 | Pacing de prática: prática ativa acumulada ≥ `PRACTICE_BLOCK_DURATION_MS` (15 min) em um bloco obriga uma pausa mínima de `MIN_BREAK_DURATION_MS` (3 min) antes de **criar** uma nova sessão; a lição em curso nunca é interrompida — se o bloco estourar durante uma lição, ela conclui normalmente e a pausa vale a partir da conclusão; sessões `ABANDONED` não acumulam; após a pausa completada, o acumulador do bloco zera (nova sequência 15:3); violação na criação de sessão → `BREAK_REQUIRED` (§28.5) |
+| RN34 | Dashboard — mapa de calor de teclas: intensidade de prática por tecla do layout ativo nos últimos `DASHBOARD_HEATMAP_WINDOW_DAYS` (7) dias (contagem de acionamentos + dias ativos), agregada e isolada por `userId + layout`, exibida num teclado visual |
+| RN35 | Dashboard — tendência de evolução: séries diárias de `netWpm`, precisão (%) e latência média (ms) por dia calendário local (RN37), agregadas num `DailyMetricsAggregate` pré-computado e consultáveis nas janelas `DASHBOARD_TREND_WINDOWS_DAYS` (7/30/90 dias) |
+| RN36 | Dashboard — `MasteryProximityIndex`: score ∈ [0,1] por tecla medindo a distância ao envelope da regra de mastery (RN09) — `MPI = w_accuracy·min(1, keyAccuracy/MASTERY_ACCURACY) + w_latency·latTerm + w_streak·min(1, consecutiveMasterySessions/MASTERY_CONSECUTIVE_SESSIONS) + w_attempts·min(1, attempts/MASTERY_ATTEMPTS)` com `latTerm = 0` se `averageLatencyMs = 0` (senão `clamp(1 − averageLatencyMs/MASTERY_LATENCY_MS, 0, 1)`) e `Σw = 1`; MPI atinge 1,0 somente quando os 4 gates do RN09 estão todos satisfeitos; faixas para a UI: `longe` (<0,20), `em progresso` (0,20–0,50), `próximo` (0,50–0,80), `às vésperas` (≥0,80) — pesos e limiares em §26 (`MPI_*`) |
+| RN37 | Dashboard — fuso horário do usuário: `UserProfile.timezone` (IANA, default `America/Sao_Paulo`) define o dia calendário local usado na agregação diária (RN35) e nos rótulos — usuários em qualquer fuso têm agregações e rótulos corretos independentemente do relógio do servidor (UTC) |
 
 ---
 
@@ -801,11 +836,19 @@ Cada RN é classificada conforme Sommerville §6.1: **F** (funcional — serviç
 | RN28 | NF | Deve | Segurança do usuário: dor = sinal de alerta, não obstáculo; prioridade máxima sobre progresso. | Prompt Pedagógico §10-16; NR17; ADR-011 |
 | RN29 | D | Deve | Variação evita tédio e consolida aprendizagem motora; repetição idêntica sem ajuste não gera progresso. | Prompt Pedagógico §39; Andragogia |
 | RN30 | F | Deve | Fechamento estruturado consolida aprendizagem, emite artefato de continuidade e reforça saúde. | Prompt Pedagógico §41-51 |
+| RN31 | F | Deve | Recomeçar o curso é necessidade real pós-conclusão; manter conta e layout evita re-cadastro e perda de preferência. | Feedback de usuário; PRD §2.3.1 |
+| RN32 | F | Deve | Feedback visual imediato melhora a motivação e permite ao usuário identificar rapidamente onde precisa focar. | UX; Andragogia; RN09/RN26 |
+| RN33 | NF | Deve | Pausas preventivas por tempo reduzem fadiga, desconforto musculoesquelético e o risco de LER/DORT — a pausa de 3 min ativa circulação e melhora a concentração na retomada; bloquear apenas a criação de nova sessão (nunca interromper a lição ativa) preserva o fluxo de prática. | Prompt Pedagógico §10-16, §41-51; RN24/RN28; NR17 |
+| RN34 | F | Deve | Painel de cadência por tecla dá visão instantânea de onde se pratica mais (e menos) — orienta o foco do treino no layout ativo. | Feedback de produto (Fase 9); ADR-020 |
+| RN35 | F | Deve | Ver a evolução ao longo de janelas de tempo é o insumo central de motivação e meta-avaliação do treino (progresso perceptível). | Feedback de produto (Fase 9); ADR-020 |
+| RN36 | D | Deve | "Distância à maestria" é um conceito de domínio — deriva dos mesmos gates do RN09 com pesos explícitos e testáveis; um índice único permite priorizar teclas de forma legível no dashboard. | ADR-020; RN04 (precedente de pesos); RN09 |
+| RN37 | NF | Deve | Agregar por dia calendário usando o fuso do usuário (e não UTC do servidor) evita rótulos e contagens erradas de dia — consistência temporal por perfil. | Feedback de produto (Fase 9); ADR-020 |
 
 Notas:
-* RNs 1–7, 12–14, 20, 21, 23, 24, 27, 30 são **funcionais**; RNs 8–10, 19, 25, 26, 29 são de **domínio**; RNs 16–18, 22, 28 são **não funcionais** (segurança/dados).
+* RNs 1–7, 12–14, 20, 21, 23, 24, 27, 30, 31, 34, 35 são **funcionais**; RNs 8–10, 19, 25, 26, 29, 36 são de **domínio**; RNs 16–18, 22, 28 são **não funcionais** (segurança/dados).
 * RN22: o *efeito funcional* (sessão insuficiente → métricas nulas) é acionado por *thresholds não funcionais* — os literais `3000ms` e `5 chars` são parâmetros nomeados (`MIN_SESSION_DURATION_MS`, `MIN_SESSION_CHARACTERS`), agora em §26, nunca inline.
-* RN24–RN30 implementam a metodologia pedagógica do Prompt-Pedagogico.md (Andragogia, progressão em fases, critério de avanço rigoroso, Cartão de Progresso, regra de segurança, variação antes de repetição, fechamento de sessão).
+* RN24–RN33 implementam a metodologia pedagógica do Prompt-Pedagogico.md (Andragogia, progressão em fases, critério de avanço rigoroso, Cartão de Progresso, regra de segurança, variação antes de repetição, fechamento de sessão), o requisito de reset de progresso (RN31, §2.3.1 item 12), o status visual por lição (RN32, feedback de UX) e o pacing de prática com pausas preventivas (RN33).
+* RN34–RN37 (Fase 9) são a camada de **dashboard**: serviço de domínio novo (`DailyMetricsAggregate`, `MasteryProximityIndex`, `KeyMasteryTransition`) consumido por 3 rotas `GET /me/dashboard/*` — nenhuma agregação pesada por request (pré-computação, ADR-020) para atender a RNF11 (p95 ≤ 500ms em 1 ano de dados).
 
 ---
 
@@ -820,6 +863,7 @@ Requisitos não funcionais especificam restrições sobre serviços/funções e 
 * **RNF06 (Performance) — quantitativo, validado** — `p95 ≤ 150ms` no endpoint de submit para payloads de até 1500 eventos. **Ambiente de referência (validado):** ferramenta `autocannon` (lib Node/TS, `npm run bench`), executado localmente em máquina de desenvolvimento documentada (CPU, RAM, OS), SQLite em arquivo (não em memória), banco pré-populado com histórico realista de pelo menos 500 sessões do usuário de teste, sem cache externo. Não requer CI — baseline comparável ao longo do tempo no mesmo ambiente local. *Nota cena A (TASK-080, 2026-09-15):* medida também pelo caminho da UI Next em produção (`npm run bench:cena-a`). O submit assíncrono de um usuário real (sessão nova, 1500 eventos, via `/api`) fica **dentro** do budget (p95 ~45ms frio, ~12ms médio). O mesmo autocannon de 10 conexões **através do rewrite `/api` do Next** não atende o p95 (≈4,8s; gargalo do proxy Next sob carga concorrente — o acesso direto ao backend na mesma máquina permanece ≈40ms). RNF06 da API continua medido no endpoint; o follow-up do proxy concorrente está registrado no BACKLOG (TASK-080).
 * **RNF07 (Testabilidade)** — serviços de domínio testáveis sem banco, HTTP, filesystem ou TypeORM. *Verificável:* suíte de domínio roda com `npm run test` sem infraestrutura externa.
 * **RNF08 (Segurança — nova)** — nenhuma senha em texto puro é logada, persistida ou retornada em qualquer resposta de API; tokens JWT não são logados integralmente (apenas os primeiros caracteres, se necessário para depuração). *Verificável:* auditoria de logs (busca por formas de senha) e teste de integração que garante ausência de `passwordHash` em respostas.
+* **RNF11 (Performance do Dashboard) — quantitativo** — os endpoints `GET /me/dashboard/*` devem responder com `p95 ≤ 500ms` sob o **pior caso alvo**: 1 ano de atividade por semana (≈52 `DailyMetricsAggregate`s) por usuário. **Ambiente de referência:** mesmo do RNF06 (`autocannon`, máquina local documentada, SQLite em arquivo). **Mecanismo:** agregação **pré-computada** (`DailyMetricsAggregate` persistido por dia; `submit` mantém o agregado — nunca agrega sessões por request) e leitura transversal totalizando somas de contadores por janela (ADR-020). *Verificável:* `npm run bench:dashboard` com seed de 52 semanas; veredito em `bench/`. Requisito derivado de produto para a Fase 9.
 
 ### 28.2 Requisitos Não Funcionais Organizacionais
 
@@ -840,6 +884,7 @@ Requisitos não funcionais frequentemente entram em conflito (Sommerville §6.1.
 * **RNF06 (Performance) × RNF08 (Segurança/log)** — logar demasiado (tokens, senhas) tem custo e risco; omitir logging dificulta auditoria. *Resolução:* nunca logar senha; JWT apenas prefixado.
 * **RNF02 (Formato único de erro) × RNF06 (Performance)** — padronização adiciona overhead de formatação em cada erro. *Resolução:* aceito; formato é barato e pré-computado no catálogo (§28.5).
 * **RNF03/07 (Independência de infra) × RNF06 (Performance)** — isolar domínio da infraestrutura pode adicionar indireção; performance é medida contra baseline local documentado. *Resolução:* indireção de portas é desprezível no budget; RNF06 mede o resultado agregado.
+* **RNF06 (Performance submit) × RNF11 (Performance dashboard)** — ambos leem/escrevem o mesmo SQLite; o agregado diário é mantido **no caminho do submit**. *Resolução:* o `submit` ganha apenas 1 WRITE (upsert) por sessão `COMPLETED` pela primeira vez (RN14 não duplica) — mesmo custo de magnitude de RN33 (`practice_pacing`); o orçamento do p95 (150ms) não é tensionado. Verificado no `bench:dashboard` para RNF11 e revalidado no `bench` (RNF06) na TASK-100.
 
 ### 28.5 Catálogo de Erros
 
@@ -866,6 +911,7 @@ Todo erro retornado segue o formato padronizado da **RNF02**. `code` e chaves es
 | `SESSION_NOT_FOUND` | 404 | Sessão não encontrada |
 | `SESSION_ALREADY_COMPLETED` | 409 | Sessão já completada |
 | `TOO_MANY_REQUESTS` | 429 | Muitas tentativas de login. Tente novamente mais tarde |
+| `BREAK_REQUIRED` | 409 | Hora de descansar: faça uma pausa de pelo menos 3 minutos (alongue os braços, beba água e mexa as pernas) antes de iniciar a próxima lição |
 
 Mensagens de validação de campos (Zod) são geradas pelo mapa de erro pt-BR (TASK-070) e devolvidas como detalhe (`details.issues`) do `VALIDATION_ERROR`, cada uma com `path`, `code` e `message`.
 
@@ -880,6 +926,11 @@ Antes da infraestrutura, o domínio deve possuir testes automatizados.
 * **AdaptiveLessonEngine** — distribuição 60/25/15, pool vazio, redistribuição, arredondamento, **desempate determinístico (RN19)**, exclusão de UNKNOWN, seleção de teclas fracas, tamanho aproximado de 150 caracteres, uso de N-grams, isolamento por layout.
 * **TypingSession** — transições válidas/inválidas, pause, resume, abandon, submit, submit duplicado, operação por usuário não-dono (`SESSION_NOT_OWNED`).
 * **ProgressionEngine** — conclusão de lição, avanço de nível, seleção da próxima lição, diferença entre progressão normal e reforço.
+* **ResetProgress** — reset apaga sessões, desempenho por tecla, Cartão de Progresso e progresso do usuário, zera o nível para 1 e preserva a conta e o layout; isolado por usuário (RN17, RN31).
+* **GetLessonPerformance** — cálculo de `bestAccuracy`, `lastAccuracy`, `attempts` e `status` por lição a partir de sessões `COMPLETED`; 4 estados (NOT_STARTED, MASTERED, REVIEW, PRACTICING); guarda `attempts ≥ 2` para REVIEW; isolamento por usuário (RN17, RN32).
+* **DailyMetricsAggregate** — soma de contadores por `(userId, layout, date)`; derivação de `netWpm`/precisão/latência do dia; idempotência (re-submit RN14 não duplica); janelas 7/30/90 (RN35); isolamento por usuário/layout (RN17, RN11).
+* **MasteryProximityIndex** — MPI ∈ [0,1] com pesos `MPI_W_*` em §26; `latTerm = 0` quando `averageLatencyMs = 0`; satura em 1,0 somente com os 4 gates do RN09; faixas (RN36). Testes de propriedade: monotonicidade e saturação.
+* **GetDashboard\*** (habits/mastery/proximity) — séries e KPIs, heatmap 7 dias, lista de proximidade ordenada, transições de mastery; isolamento por usuário (RN17, RN34–RN37).
 * **Autenticação** — registro com e-mail duplicado, login com credencial inválida, acesso sem token, acesso com token expirado/inválido, acesso a recurso de outro usuário, hashing de senha (nunca compara texto puro).
 
 ---
@@ -908,6 +959,16 @@ FASE 6 — Presentation
 
 FASE 7 — Integração
   HTTP → Controller → Use Case → Domain → Repository → Database, com autenticação ponta a ponta
+
+FASE 8 — Migração de apresentação (ADR-016/017/018)
+  Nest.js (backend), Next.js (UI web) — arquitetura MVC na apresentação, nenhuma RN no cliente
+
+FASE 9 — Dashboard do progresso (RN34–RN37, RNF11, ADR-020)
+  DailyMetricsAggregate + KeyMasteryTransition + MasteryProximityIndex (domínio, TDD)
+  SubmitTypingSession mantém agregado diário (RN14) e log de transição de mastery
+  Use cases GetDashboard{Habits,Mastery,Proximity} + rotas /me/dashboard/* (Nest/Express, RN17)
+  UI web: página /app/dashboard com Recharts (8 visualizações) — pré-agregação vem do backend
+  Bench RNF11 (bench:dashboard, 1 ano por semana) e revalidação RNF06
 ```
 
 A implementação começa pelo domínio e seus testes. Controllers, TypeORM ou banco de dados não são o primeiro passo.
@@ -943,11 +1004,11 @@ A implementação começa pelo domínio e seus testes. Controllers, TypeORM ou b
 
 ## 33. Estado Atual
 
-**PRD v1.4 — Ativo (aprovado para implementação); v1.3/v1.4 refinaram a especificação (auditoria Sommerville, escopo OAuth/rate-limiting) sem alterar regras de negócio.**
+**PRD v1.6 — Ativo (aprovado para implementação); a Fase 9 (Dashboard) foi especificada (RN34–RN37, RNF11, ADR-020) com a recomendação de pesos do `MasteryProximityIndex` validada (`MPI_W_ACCURACY=0.35`, `MPI_W_LATENCY=0.25`, `MPI_W_STREAK=0.25`, `MPI_W_ATTEMPTS=0.15`).**
 
-Pendências "A VALIDAR" resolvidas (ADR-010) e atualizadas conforme Fase 3 (TASK-034a–d):
-* Seção 26: `BCRYPT_SALT_ROUNDS=12`, `JWT_ACCESS_EXPIRATION=15m`, `JWT_REFRESH_EXPIRATION=30d`, `MIN_PASSWORD_LENGTH=8`, `ACTIVE_DURATION_EPSILON_MS=1000`
-* RNF06: ferramenta `autocannon`, ambiente local documentado
-* Nova RN22 adicionada (Seção 27) para sessões com dados insuficientes
+Histórico consolidado:
+* v1.0–v1.4: núcleo de domínio, autenticação (ADR-010), auditoria Sommerville (Requirement Engineering) — `KeyPerformance`, mastery, pools, RNF06 validado.
+* v1.5: RN31 (reset), RN32 (status por lição), RN33 (pacing de prática, ADR-019).
+* v1.6: RN34–RN37 + RNF11 (Fase 9 — dashboard) — ver §27, §28.1, §26 e ADR-020.
 
-Fase 5 (Infrastructure) desbloqueada — nenhuma pendência bloqueia o início da Fase 1.
+Fase 1 (Domain Core) concluída; Fases 2–7 concluídas (backend assíncrono real, 620 testes); Fase 8 concluída (migração web/Nest via ADR-016/017/018); **Fase 9 em implementação** (TASK-092–100). Pendências "A VALIDAR" resolvidas (ADR-010).
