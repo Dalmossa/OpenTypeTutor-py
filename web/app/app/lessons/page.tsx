@@ -8,7 +8,7 @@ import TypingInterface from '@/components/typing-interface';
 import InfoTip from '@/components/info-tip';
 import { useTypingSession } from '@/hooks/use-typing-session';
 import { PEDAGOGICAL_PHASE_ORDER, phaseInfo, phaseOrder } from '@/lib/pedagogical';
-import type { LessonDTO } from '@/models/lesson';
+import type { LessonDTO, LessonPerformanceDTO, LessonPerformanceStatus } from '@/models/lesson';
 import type { GetNextPedagogicalLessonResponseDTO } from '@/models/pedagogical';
 import { createControllers } from '@/controllers';
 
@@ -17,6 +17,7 @@ const ERGONOMIC_LOCAL_FLAG = 'ott-ergo-done';
 export default function LessonsPage(): ReactNode {
   const { user, accessToken: token, loading } = useAuth();
   const [lessons, setLessons] = useState<LessonDTO[]>([]);
+  const [performance, setPerformance] = useState<LessonPerformanceDTO[]>([]);
   const [nextLesson, setNextLesson] = useState<GetNextPedagogicalLessonResponseDTO | null>(null);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
@@ -33,11 +34,16 @@ export default function LessonsPage(): ReactNode {
     }
     let cancelled = false;
     const controllers = createControllers();
-    Promise.all([controllers.lessons.list(token), controllers.pedagogical.getNextLesson(token)])
-      .then(([items, next]) => {
+    Promise.all([
+      controllers.lessons.list(token),
+      controllers.pedagogical.getNextLesson(token),
+      controllers.lessons.getPerformance(token),
+    ])
+      .then(([items, next, perf]) => {
         if (!cancelled) {
           setLessons(items);
           setNextLesson(next);
+          setPerformance(perf);
           setFetchError(null);
         }
       })
@@ -151,6 +157,9 @@ export default function LessonsPage(): ReactNode {
 
   const isNext = (lesson: LessonDTO): boolean => nextLesson?.lesson?.id === lesson.id;
 
+  // RN32 - status visual por lição (NOT_STARTED/PRACTICING/REVIEW/MASTERED)
+  const statusByLesson = new Map(performance.map((p) => [p.lessonId, p.status]));
+
   const plainLessons = lessons.filter((lesson) => phaseInfo(lesson.pedagogicalPhase) === null);
   const groups = PEDAGOGICAL_PHASE_ORDER.map((phase) => ({
     phase,
@@ -226,6 +235,9 @@ export default function LessonsPage(): ReactNode {
                             <span className="rounded-full bg-indigo-600 px-2 py-0.5 text-xs font-medium text-white">
                               Próxima lição
                             </span>
+                          )}
+                          {!next && statusByLesson.get(lesson.id) !== 'NOT_STARTED' && (
+                            <StatusBadge status={statusByLesson.get(lesson.id) ?? 'NOT_STARTED'} />
                           )}
                           <p className={unlocked ? 'font-medium text-slate-800' : 'text-slate-400'}>
                             {lesson.title}
@@ -415,6 +427,31 @@ function ErgonomicCheckModal({
         </div>
       </div>
     </div>
+  );
+}
+
+// RN32 - badge de status visual por lição, com cores por estado.
+const STATUS_BADGE_LABEL: Record<LessonPerformanceStatus, string> = {
+  NOT_STARTED: 'Não iniciada',
+  PRACTICING: 'Em prática',
+  REVIEW: 'Revisar',
+  MASTERED: 'Dominada',
+};
+
+const STATUS_BADGE_CLASS: Record<LessonPerformanceStatus, string> = {
+  NOT_STARTED: 'bg-slate-100 text-slate-500',
+  PRACTICING: 'bg-sky-100 text-sky-700',
+  REVIEW: 'bg-amber-100 text-amber-700',
+  MASTERED: 'bg-green-100 text-green-700',
+};
+
+function StatusBadge({ status }: { status: LessonPerformanceStatus }): ReactNode {
+  return (
+    <span
+      className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_BADGE_CLASS[status]}`}
+    >
+      {STATUS_BADGE_LABEL[status]}
+    </span>
   );
 }
 

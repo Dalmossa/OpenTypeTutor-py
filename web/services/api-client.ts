@@ -8,7 +8,7 @@ import type {
   RegisterUserDTO,
   RegisterUserResponseDTO,
 } from '@/models/auth';
-import type { LessonDTO } from '@/models/lesson';
+import type { LessonDTO, LessonPerformanceDTO } from '@/models/lesson';
 import type { GetUserProgressDTO, KeyPerformanceDTO, PracticeStatusDTO, ResetProgressResponseDTO } from '@/models/progress';
 import type {
   ErgonomicCheckDTO,
@@ -179,6 +179,11 @@ export class ApiClient {
 
   async getKeyPerformance(token: string): Promise<KeyPerformanceDTO[]> {
     return this.request<KeyPerformanceDTO[]>('/me/key-performance', {}, token);
+  }
+
+  // RN32 - status visual por lição (NOT_STARTED/MASTERED/REVIEW/PRACTICING)
+  async getLessonPerformance(token: string): Promise<LessonPerformanceDTO[]> {
+    return this.request<LessonPerformanceDTO[]>('/me/lessons/performance', {}, token);
   }
 
   // RN33 - estado de pacing (acumulado, limites e pausa restante) para a UI cronometrar
