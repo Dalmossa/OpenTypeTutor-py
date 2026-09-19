@@ -1,6 +1,6 @@
 import { DataSource, type MigrationInterface } from 'typeorm';
 import { databaseParams } from './databaseParams.js';
-import { UserEntity, UserProfileEntity, LessonEntity, TypingSessionEntity, KeyPerformanceEntity, ProgressEntity, ProgressCardEntity, PracticePacingEntity, DailyMetricsAggregateEntity } from './entities/index.js';
+import { UserEntity, UserProfileEntity, LessonEntity, TypingSessionEntity, KeyPerformanceEntity, ProgressEntity, ProgressCardEntity, PracticePacingEntity, DailyMetricsAggregateEntity, KeyMasteryTransitionEntity } from './entities/index.js';
 import { InitSchema1700000000000 } from './migrations/1700000000000-InitSchema.js';
 import { SeedCurriculum1700000000001 } from './migrations/1700000000001-SeedCurriculum.js';
 import { SeedCurriculumLevels2and31700000000002 } from './migrations/1700000000002-SeedCurriculumLevels2and3.js';
@@ -11,6 +11,7 @@ import { AddProgressCardTable1700000000006 } from './migrations/1700000000006-Ad
 import { AddPracticePacingTable1700000000007 } from './migrations/1700000000007-AddPracticePacingTable.js';
 import { AddDailyMetricsAggregateTable1700000000008 } from './migrations/1700000000008-AddDailyMetricsAggregateTable.js';
 import { AddDashboardFields1700000000009 } from './migrations/1700000000009-AddDashboardFields.js';
+import { AddKeyMasteryTransitionTable17000000000010 } from './migrations/17000000000010-AddKeyMasteryTransitionTable.js';
 
 type DataSourceConfig = {
   database?: string;
@@ -25,6 +26,7 @@ const SCHEMA_MIGRATIONS: (new () => MigrationInterface)[] = [
   AddPracticePacingTable1700000000007,
   AddDailyMetricsAggregateTable1700000000008,
   AddDashboardFields1700000000009,
+  AddKeyMasteryTransitionTable17000000000010,
 ];
 const ALL_MIGRATIONS: (new () => MigrationInterface)[] = [
   InitSchema1700000000000,
@@ -37,13 +39,14 @@ const ALL_MIGRATIONS: (new () => MigrationInterface)[] = [
   AddPracticePacingTable1700000000007,
   AddDailyMetricsAggregateTable1700000000008,
   AddDashboardFields1700000000009,
+  AddKeyMasteryTransitionTable17000000000010,
 ];
 
 export function createDataSource(config?: Partial<DataSourceConfig>): DataSource {
   return new DataSource({
     type: 'better-sqlite3',
     database: config?.database ?? databaseParams.DATABASE_PATH,
-    entities: [UserEntity, UserProfileEntity, LessonEntity, TypingSessionEntity, KeyPerformanceEntity, ProgressEntity, ProgressCardEntity, PracticePacingEntity, DailyMetricsAggregateEntity],
+    entities: [UserEntity, UserProfileEntity, LessonEntity, TypingSessionEntity, KeyPerformanceEntity, ProgressEntity, ProgressCardEntity, PracticePacingEntity, DailyMetricsAggregateEntity, KeyMasteryTransitionEntity],
     migrations: config?.migrations ?? ALL_MIGRATIONS,
     synchronize: false,
     logging: false,

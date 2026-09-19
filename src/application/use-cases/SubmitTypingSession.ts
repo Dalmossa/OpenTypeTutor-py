@@ -4,13 +4,16 @@ import type { IProgressRepository } from '../../domain/repositories/IProgressRep
 import type { ILessonRepository } from '../../domain/repositories/ILessonRepository.js';
 import type { IPracticePacingRepository } from '../../domain/repositories/IPracticePacingRepository.js';
 import type { IDailyMetricsAggregateRepository } from '../../domain/repositories/IDailyMetricsAggregateRepository.js';
+import type { IKeyMasteryTransitionRepository } from '../../domain/repositories/IKeyMasteryTransitionRepository.js';
 import type { IUserProfileRepository } from '../../domain/repositories/IUserProfileRepository.js';
 import type { TypingSession } from '../../domain/entities/TypingSession.js';
 import { KeyPerformance } from '../../domain/entities/KeyPerformance.js';
+import type { MasteryState } from '../../domain/entities/KeyPerformance.js';
 import { KeystrokeEvent } from '../../domain/entities/KeystrokeEvent.js';
 import { Progress } from '../../domain/entities/Progress.js';
 import { PracticePacingState } from '../../domain/entities/PracticePacingState.js';
 import { DailyMetricsAggregate } from '../../domain/entities/DailyMetricsAggregate.js';
+import { KeyMasteryTransition } from '../../domain/entities/KeyMasteryTransition.js';
 import { SessionId } from '../../domain/value-objects/SessionId.js';
 import { Timezone } from '../../domain/value-objects/Timezone.js';
 import { MetricsEngine } from '../../domain/services/MetricsEngine.js';
@@ -33,6 +36,7 @@ export class SubmitTypingSession {
     private readonly pacingRepository: IPracticePacingRepository,
     private readonly aggregateRepository: IDailyMetricsAggregateRepository,
     private readonly userProfileRepository: IUserProfileRepository,
+    private readonly masteryTransitionRepository: IKeyMasteryTransitionRepository,
     private readonly now: Clock = () => new Date()
   ) {}
 
@@ -61,7 +65,8 @@ export class SubmitTypingSession {
     const metrics = MetricsEngine.calculate(completedSession);
     const finalizedSession = completedSession.setMetrics(metrics);
 
-    await this.applyKeystrokePerformance(sessionWithEvents);
+    const localDate = await this.resolveLocalDate(session.userId);
+    await this.applyKeystrokePerformance(sessionWithEvents, localDate);
     await this.advanceProgress(sessionWithEvents);
 
     await this.sessionRepository.save(finalizedSession);
@@ -75,9 +80,17 @@ export class SubmitTypingSession {
       pacing.recordCompletedSession(metrics.activeDurationMs, this.now())
     );
 
-    await this.applyDailyAggregate(sessionWithEvents, metrics);
+    await this.applyDailyAggregate(sessionWithEvents, metrics, localDate);
 
     return this.toResponse(finalizedSession);
+  }
+
+  // RN37 - chave do dia calendário local do usuário (default America/Sao_Paulo)
+  private async resolveLocalDate(userId: SessionId): Promise<string> {
+    const profile = await this.userProfileRepository.findByUserId(userId);
+    const timezone =
+      profile !== null ? Timezone.create({ value: profile.timezone }) : Timezone.createDefault();
+    return timezone.toLocalDateKey(this.now());
   }
 
   // RN35 - mantém o agregado diário pré-computado por (userId, layout, date local RN37).
@@ -85,7 +98,8 @@ export class SubmitTypingSession {
   // dados insuficientes (RN22) não entram no agregado.
   private async applyDailyAggregate(
     session: TypingSession,
-    metrics: ReturnType<typeof MetricsEngine.calculate>
+    metrics: ReturnType<typeof MetricsEngine.calculate>,
+    localDate: string
   ): Promise<void> {
     if (
       metrics.activeDurationMs < adaptiveParams.INSUFFICIENT_DATA_MIN_DURATION_MS ||
@@ -93,11 +107,6 @@ export class SubmitTypingSession {
     ) {
       return;
     }
-
-    const profile = await this.userProfileRepository.findByUserId(session.userId);
-    const timezone =
-      profile !== null ? Timezone.create({ value: profile.timezone }) : Timezone.createDefault();
-    const localDate = timezone.toLocalDateKey(this.now());
 
     const keys = session.keystrokes
       .filter((keystroke) => !keystroke.isControlKey())
@@ -114,8 +123,9 @@ export class SubmitTypingSession {
     await this.aggregateRepository.save(existing.merge(metrics, keys));
   }
 
-  private async applyKeystrokePerformance(session: TypingSession): Promise<void> {
+  private async applyKeystrokePerformance(session: TypingSession, localDate: string): Promise<void> {
     const pendingByKey = new Map<string, KeyPerformance>();
+    const baselineStates = new Map<string, MasteryState>();
 
     for (const keystroke of session.keystrokes) {
       if (keystroke.isControlKey()) continue;
@@ -135,6 +145,11 @@ export class SubmitTypingSession {
           layout: session.layout,
         });
 
+      // RN09/RN10 - estado persistido antes da sessão (baseline para detectar transição)
+      if (!baselineStates.has(keyId)) {
+        baselineStates.set(keyId, existing.masteryState);
+      }
+
       pendingByKey.set(
         keyId,
         existing.recordAttempt({
@@ -151,6 +166,23 @@ export class SubmitTypingSession {
 
       const withSessionEnd = performance.recordSessionEnd(isMasteryApproved);
       await this.keyPerformanceRepository.save(withSessionEnd);
+
+      // RN09/RN10 - timeline: persiste a transição somente quando o masteryState persistido
+      // muda no fim da sessão (ADR-020). `from` = estado carregado antes da sessão.
+      const keyId = `${performance.logicalKey}:${session.layout.value}`;
+      const from = baselineStates.get(keyId);
+      if (from !== undefined && from !== withSessionEnd.masteryState) {
+        await this.masteryTransitionRepository.save(
+          KeyMasteryTransition.create({
+            userId: session.userId,
+            logicalKey: performance.logicalKey,
+            layout: session.layout,
+            date: localDate,
+            from,
+            to: withSessionEnd.masteryState,
+          })
+        );
+      }
     }
   }
 

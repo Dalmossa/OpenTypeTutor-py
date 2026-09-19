@@ -7,8 +7,10 @@ import { InMemoryLessonRepository } from '../../infrastructure/repositories/InMe
 import { InMemoryPracticePacingRepository } from '../../infrastructure/repositories/InMemoryPracticePacingRepository.js';
 import { InMemoryDailyMetricsAggregateRepository } from '../../infrastructure/repositories/InMemoryDailyMetricsAggregateRepository.js';
 import { InMemoryUserProfileRepository } from '../../infrastructure/repositories/InMemoryUserProfileRepository.js';
+import { InMemoryKeyMasteryTransitionRepository } from '../../infrastructure/repositories/InMemoryKeyMasteryTransitionRepository.js';
 import { Lesson } from '../../domain/entities/Lesson.js';
 import { UserProfile } from '../../domain/entities/UserProfile.js';
+import { KeyPerformance } from '../../domain/entities/KeyPerformance.js';
 import { TypingSession } from '../../domain/entities/TypingSession.js';
 import { SessionId } from '../../domain/value-objects/SessionId.js';
 import { Layout } from '../../domain/value-objects/Layout.js';
@@ -82,7 +84,8 @@ describe('SubmitTypingSession', () => {
       lessonRepository,
       new InMemoryPracticePacingRepository(),
       aggregateRepository,
-      userProfileRepository
+      userProfileRepository,
+      new InMemoryKeyMasteryTransitionRepository()
     );
 
     await lessonRepository.save(
@@ -321,6 +324,86 @@ describe('SubmitTypingSession', () => {
         '2024-01-01'
       );
       expect(kiritimatiDay?.sessionsCompleted).toBe(1);
+    });
+  });
+
+  describe('RN09/RN10 - Timeline de transições de mastery', () => {
+    let transitionRepository: InMemoryKeyMasteryTransitionRepository;
+
+    beforeEach(() => {
+      transitionRepository = new InMemoryKeyMasteryTransitionRepository();
+      submitTypingSession = new SubmitTypingSession(
+        sessionRepository,
+        keyPerformanceRepository,
+        progressRepository,
+        lessonRepository,
+        new InMemoryPracticePacingRepository(),
+        aggregateRepository,
+        userProfileRepository,
+        transitionRepository
+      );
+    });
+
+    it('RN09/RN10 - registra transição somente quando masteryState muda no fim da sessão', async () => {
+      // 'a' com 29 tentativas e 2 aprovações consecutivas promove para MASTERED de ~sessão
+      await keyPerformanceRepository.save(
+        KeyPerformance.create({
+          userId: SessionId.create(USER_ID),
+          logicalKey: 'a',
+          layout: Layout.create('ABNT2'),
+          attempts: 29,
+          errors: 0,
+          averageLatencyMs: 100,
+          consecutiveMasterySessions: 2,
+          regressionSessions: 0,
+          masteryState: 'LEARNING',
+        })
+      );
+
+      vi.advanceTimersByTime(12000);
+      await submitTypingSession.execute({ userId: USER_ID, sessionId, keystrokes: validEvents });
+
+      const transitions = transitionRepository.getAll();
+      expect(transitions.length).toBeGreaterThan(0);
+
+      const aTransitions = transitions.filter((t) => t.logicalKey === 'a');
+      expect(aTransitions).toHaveLength(1);
+      expect(aTransitions[0]?.from).toBe('LEARNING');
+      expect(aTransitions[0]?.to).toBe('MASTERED');
+
+      for (const t of transitions) {
+        expect(t.from).not.toBe(t.to);
+      }
+    });
+
+    it('RN09 - estado estável não gera transição', async () => {
+      // 'q' não participa da sessão: nada muda, logo nada é logado
+      await keyPerformanceRepository.save(
+        KeyPerformance.create({
+          userId: SessionId.create(USER_ID),
+          logicalKey: 'q',
+          layout: Layout.create('ABNT2'),
+          attempts: 10,
+          errors: 5,
+          averageLatencyMs: 800,
+          consecutiveMasterySessions: 0,
+          regressionSessions: 0,
+          masteryState: 'WEAK',
+        })
+      );
+
+      vi.advanceTimersByTime(12000);
+      await submitTypingSession.execute({ userId: USER_ID, sessionId, keystrokes: validEvents });
+
+      const kept = await keyPerformanceRepository.findByUserIdAndLogicalKey(
+        SessionId.create(USER_ID),
+        'q',
+        Layout.create('ABNT2')
+      );
+      expect(kept?.masteryState).toBe('WEAK');
+
+      const qTransitions = transitionRepository.getAll().filter((t) => t.logicalKey === 'q');
+      expect(qTransitions).toHaveLength(0);
     });
   });
 

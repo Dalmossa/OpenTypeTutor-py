@@ -11,6 +11,7 @@ import { TypeOrmProgressRepository } from '../infrastructure/repositories/TypeOr
 import { TypeOrmProgressCardRepository } from '../infrastructure/repositories/TypeOrmProgressCardRepository.js';
 import { TypeOrmPracticePacingRepository } from '../infrastructure/repositories/TypeOrmPracticePacingRepository.js';
 import { TypeOrmDailyMetricsAggregateRepository } from '../infrastructure/repositories/TypeOrmDailyMetricsAggregateRepository.js';
+import { TypeOrmKeyMasteryTransitionRepository } from '../infrastructure/repositories/TypeOrmKeyMasteryTransitionRepository.js';
 import { InMemoryNGramRepository } from '../infrastructure/repositories/InMemoryNGramRepository.js';
 import { BcryptPasswordHasher } from '../infrastructure/auth/BcryptPasswordHasher.js';
 import { AuthPasswordValidator } from '../infrastructure/auth/AuthPasswordValidator.js';
@@ -175,6 +176,7 @@ describe('Fase 7 - fluxo completo HTTP→Controller→Use Case→Domain→Reposi
     const progressCardRepository = new TypeOrmProgressCardRepository(dataSource);
     const pacingRepository = new TypeOrmPracticePacingRepository(dataSource);
     const dailyAggregateRepository = new TypeOrmDailyMetricsAggregateRepository(dataSource);
+    const masteryTransitionRepository = new TypeOrmKeyMasteryTransitionRepository(dataSource);
     const passwordHasher = new BcryptPasswordHasher();
     const passwordValidator = new AuthPasswordValidator();
     const tokenService = new JwtTokenService();
@@ -214,7 +216,8 @@ describe('Fase 7 - fluxo completo HTTP→Controller→Use Case→Domain→Reposi
         lessonRepository,
         pacingRepository,
         dailyAggregateRepository,
-        userProfileRepository
+        userProfileRepository,
+        masteryTransitionRepository
       ),
       getReinforcementLesson: new GetReinforcementLesson(
         userProfileRepository,

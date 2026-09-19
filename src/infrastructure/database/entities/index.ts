@@ -16,3 +16,5 @@ export { PracticePacingEntity } from './PracticePacingEntity.js';
 export type { PracticePacingRow } from './PracticePacingEntity.js';
 export { DailyMetricsAggregateEntity } from './DailyMetricsAggregateEntity.js';
 export type { DailyMetricsAggregateRow } from './DailyMetricsAggregateEntity.js';
+export { KeyMasteryTransitionEntity } from './KeyMasteryTransitionEntity.js';
+export type { KeyMasteryTransitionRow } from './KeyMasteryTransitionEntity.js';
