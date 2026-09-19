@@ -47,4 +47,15 @@ describe('RN27 - InMemoryProgressCardRepository (Cartão persistido entre sessõ
     expect(await repository.findLatestByUserId(other)).toBeNull();
     expect(await repository.findLatestByUserId(SessionId.create(USER_ID))).not.toBeNull();
   });
+
+  it('RN31 - deleteByUserId apaga os cartões do usuário e preserva os de outros', async () => {
+    const other = SessionId.create('9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d');
+    await repository.save(ProgressCard.createInitial(SessionId.create(USER_ID)));
+    await repository.save(ProgressCard.createInitial(other));
+
+    await repository.deleteByUserId(SessionId.create(USER_ID));
+
+    expect(await repository.findLatestByUserId(SessionId.create(USER_ID))).toBeNull();
+    expect(await repository.findLatestByUserId(other)).not.toBeNull();
+  });
 });

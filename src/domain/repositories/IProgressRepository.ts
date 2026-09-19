@@ -5,4 +5,5 @@ export interface IProgressRepository {
   save(progress: Progress): Promise<void>;
   findById(id: SessionId): Promise<Progress | null>;
   findByUserId(userId: SessionId): Promise<Progress | null>;
+  deleteByUserId(userId: SessionId): Promise<void>;
 }

@@ -6,4 +6,5 @@ export interface ITypingSessionRepository {
   findById(id: SessionId): Promise<TypingSession | null>;
   findByUserId(userId: SessionId): Promise<TypingSession[]>;
   findCompletedByUserId(userId: SessionId): Promise<TypingSession[]>;
+  deleteByUserId(userId: SessionId): Promise<void>;
 }

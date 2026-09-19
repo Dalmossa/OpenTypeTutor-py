@@ -29,6 +29,11 @@ export class InMemoryProgressCardRepository implements IProgressCardRepository {
     return latest;
   }
 
+  async deleteByUserId(userId: SessionId): Promise<void> {
+    await Promise.resolve();
+    this.cards.delete(userId.value);
+  }
+
   clear(): void {
     this.cards.clear();
   }

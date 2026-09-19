@@ -126,4 +126,16 @@ describe('TypeOrmTypingSessionRepository', () => {
     const missing = await repository.findById(SessionId.create('550e8400-e29b-41d4-a716-446655440098'));
     expect(missing).toBeNull();
   });
+
+  it('RN31 - deleteByUserId remove apenas as sessões do usuário', async () => {
+    const deleteUser = SessionId.create('550e8400-e29b-41d4-a716-446655440080');
+    await repository.save(buildSession('550e8400-e29b-41d4-a716-446655440081', deleteUser, 'COMPLETED'));
+    await repository.save(buildSession('550e8400-e29b-41d4-a716-446655440082', deleteUser, 'RUNNING'));
+
+    await repository.deleteByUserId(deleteUser);
+
+    expect(await repository.findByUserId(deleteUser)).toHaveLength(0);
+    expect(await repository.findByUserId(USER_ID)).toHaveLength(2);
+    expect(await repository.findByUserId(OTHER_USER)).toHaveLength(1);
+  });
 });

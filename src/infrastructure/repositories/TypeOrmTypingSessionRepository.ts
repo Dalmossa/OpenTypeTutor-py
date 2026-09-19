@@ -76,4 +76,8 @@ export class TypeOrmTypingSessionRepository implements ITypingSessionRepository 
     });
     return rows.map(fromRow);
   }
+
+  async deleteByUserId(userId: SessionId): Promise<void> {
+    await this.repo.delete({ userId: userId.value });
+  }
 }

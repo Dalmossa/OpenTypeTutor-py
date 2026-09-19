@@ -13,6 +13,13 @@ export const adaptiveParams = {
   RECENCY_LAMBDA: 0.1,
   REINFORCEMENT_TARGET_CHARACTERS: 150,
   ACTIVE_DURATION_EPSILON_MS: 1000,
+  LESSON_MASTERY_ACCURACY: 0.95,
+  LESSON_REVIEW_ACCURACY: 0.60,
+  LESSON_REVIEW_MIN_ATTEMPTS: 2,
+
+  // RN33 - pacing de prática: bloco de 15 min de prática ativa → pausa mínima de 3 min
+  PRACTICE_BLOCK_DURATION_MS: 900000,
+  MIN_BREAK_DURATION_MS: 180000,
 } as const;
 
 export type AdaptiveParams = typeof adaptiveParams;

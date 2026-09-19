@@ -86,4 +86,27 @@ describe('TypeOrmProgressCardRepository', () => {
     expect(found?.discomfortReported).toBe(true);
     expect(found?.discomfortDetail).toBe('Dor no pulso');
   });
+
+  it('RN31 - deleteByUserId remove os cartões do usuário e preserva os de outros', async () => {
+    const other = SessionId.create('550e8400-e29b-41d4-a716-446655440071');
+    await repository.save(createCard('HOME_ROW', 4, new Date('2026-01-05T00:00:00.000Z')));
+    await repository.save(
+      ProgressCard.create({
+        userId: other,
+        date: new Date('2026-01-05T00:00:00.000Z'),
+        phase: PedagogicalPhase.create('HOME_ROW'),
+        lessonNumber: 1,
+        insecureKeys: [],
+        discomfortReported: false,
+        nextSessionNote: 'outro',
+        previousBackspaceCount: 0,
+        currentBackspaceCount: 0,
+      })
+    );
+
+    await repository.deleteByUserId(USER_ID);
+
+    expect(await repository.findLatestByUserId(USER_ID)).toBeNull();
+    expect(await repository.findLatestByUserId(other)).not.toBeNull();
+  });
 });

@@ -60,4 +60,9 @@ export class TypeOrmProgressCardRepository implements IProgressCardRepository {
     const row = rows[0];
     return row === undefined ? null : fromRow(row);
   }
+
+  // RN31 - reset de progresso apaga todos os cartões do usuário
+  async deleteByUserId(userId: SessionId): Promise<void> {
+    await this.repo.delete({ userId: userId.value });
+  }
 }

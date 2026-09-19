@@ -20,6 +20,11 @@ export class InMemoryProgressRepository implements IProgressRepository {
     return this.progresses.get(userId.value) ?? null;
   }
 
+  async deleteByUserId(userId: SessionId): Promise<void> {
+    await Promise.resolve();
+    this.progresses.delete(userId.value);
+  }
+
   clear(): void {
     this.progresses.clear();
   }

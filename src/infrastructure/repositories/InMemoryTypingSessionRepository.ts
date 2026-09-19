@@ -37,6 +37,15 @@ export class InMemoryTypingSessionRepository implements ITypingSessionRepository
     return results;
   }
 
+  async deleteByUserId(userId: SessionId): Promise<void> {
+    await Promise.resolve();
+    for (const [id, session] of this.sessions.entries()) {
+      if (session.userId.equals(userId)) {
+        this.sessions.delete(id);
+      }
+    }
+  }
+
   clear(): void {
     this.sessions.clear();
   }

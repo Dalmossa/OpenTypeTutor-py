@@ -87,4 +87,15 @@ describe('TypeOrmKeyPerformanceRepository', () => {
     expect(byUser).toHaveLength(2);
     expect(allByUser).toHaveLength(2);
   });
+
+  it('RN31 - deleteByUserId remove apenas o desempenho do usuário', async () => {
+    const deleteUser = SessionId.create('550e8400-e29b-41d4-a716-446655440081');
+    await repository.save(createPerformance({ userId: deleteUser, logicalKey: 'x' }));
+    await repository.save(createPerformance({ userId: deleteUser, logicalKey: 'y' }));
+
+    await repository.deleteByUserId(deleteUser);
+
+    expect(await repository.findByUserId(deleteUser)).toHaveLength(0);
+    expect(await repository.findByUserId(USER_ID)).toHaveLength(2);
+  });
 });

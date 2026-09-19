@@ -7,3 +7,8 @@ export interface GetUserProgressResponseDTO {
   currentLesson: LessonDTO | null;
   levelCompletionRate: number;
 }
+
+// RN31 - reset de progresso (mantém conta e layout, volta ao nível 1)
+export interface ResetProgressResponseDTO {
+  reset: true;
+}

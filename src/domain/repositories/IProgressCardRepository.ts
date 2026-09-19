@@ -5,4 +5,5 @@ import type { ProgressCard } from '../entities/ProgressCard.js';
 export interface IProgressCardRepository {
   save(card: ProgressCard): Promise<void>;
   findLatestByUserId(userId: SessionId): Promise<ProgressCard | null>;
+  deleteByUserId(userId: SessionId): Promise<void>;
 }

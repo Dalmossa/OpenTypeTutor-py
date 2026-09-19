@@ -83,4 +83,8 @@ export class TypeOrmKeyPerformanceRepository implements IKeyPerformanceRepositor
     const rows = await this.repo.find({ where: { userId: userId.value } });
     return rows.map(fromRow);
   }
+
+  async deleteByUserId(userId: SessionId): Promise<void> {
+    await this.repo.delete({ userId: userId.value });
+  }
 }

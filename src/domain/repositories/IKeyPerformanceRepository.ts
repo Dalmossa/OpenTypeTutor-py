@@ -9,4 +9,5 @@ export interface IKeyPerformanceRepository {
   findByUserIdAndLayout(userId: SessionId, layout: Layout): Promise<KeyPerformance[]>;
   findByUserIdAndLogicalKey(userId: SessionId, logicalKey: string, layout: Layout): Promise<KeyPerformance | null>;
   findAllByUserId(userId: SessionId): Promise<KeyPerformance[]>;
+  deleteByUserId(userId: SessionId): Promise<void>;
 }

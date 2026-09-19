@@ -58,6 +58,16 @@ export class InMemoryKeyPerformanceRepository implements IKeyPerformanceReposito
     return this.findByUserId(userId);
   }
 
+  async deleteByUserId(userId: SessionId): Promise<void> {
+    await Promise.resolve();
+    const prefix = `${userId.value}:`;
+    for (const key of this.performances.keys()) {
+      if (key.startsWith(prefix)) {
+        this.performances.delete(key);
+      }
+    }
+  }
+
   clear(): void {
     this.performances.clear();
   }

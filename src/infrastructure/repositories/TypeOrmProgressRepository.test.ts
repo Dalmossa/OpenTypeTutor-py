@@ -67,4 +67,22 @@ describe('TypeOrmProgressRepository', () => {
     const missing = await repository.findByUserId(SessionId.create('550e8400-e29b-41d4-a716-446655440099'));
     expect(missing).toBeNull();
   });
+
+  it('RN31 - deleteByUserId remove apenas o progresso do usuário', async () => {
+    const deleteUser = SessionId.create('550e8400-e29b-41d4-a716-446655440082');
+    await repository.save(
+      Progress.create({
+        userId: deleteUser,
+        currentLessonId: LESSON_1,
+        currentLevel: 1,
+        completedLessons: 3,
+        lastCompletedAt: null,
+      })
+    );
+
+    await repository.deleteByUserId(deleteUser);
+
+    expect(await repository.findByUserId(deleteUser)).toBeNull();
+    expect(await repository.findByUserId(USER_ID)).not.toBeNull();
+  });
 });

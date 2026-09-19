@@ -51,4 +51,8 @@ export class TypeOrmProgressRepository implements IProgressRepository {
     const row = await this.repo.findOne({ where: { userId: userId.value } });
     return row === null ? null : fromRow(row);
   }
+
+  async deleteByUserId(userId: SessionId): Promise<void> {
+    await this.repo.delete({ userId: userId.value });
+  }
 }
