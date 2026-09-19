@@ -4,6 +4,7 @@ import type {
   CheckErgonomicSafetyPort,
   GetLessonPort,
   GetNextPedagogicalLessonPort,
+  GetPracticeStatusPort,
   GetReinforcementLessonPort,
   GetUserKeyPerformancePort,
   GetUserPort,
@@ -54,6 +55,7 @@ export interface AppDependencies {
   getNextPedagogicalLesson: GetNextPedagogicalLessonPort;
   submitProgressCard: SubmitProgressCardPort;
   checkErgonomicSafety: CheckErgonomicSafetyPort;
+  getPracticeStatus: GetPracticeStatusPort;
 }
 
 export function createApp(deps: AppDependencies): express.Express {
@@ -78,7 +80,8 @@ export function createApp(deps: AppDependencies): express.Express {
   const progressController = new ProgressController(
     deps.getReinforcementLesson,
     deps.getUserProgress,
-    deps.getUserKeyPerformance
+    deps.getUserKeyPerformance,
+    deps.getPracticeStatus
   );
   const pedagogicalController = new PedagogicalController(
     deps.getNextPedagogicalLesson,

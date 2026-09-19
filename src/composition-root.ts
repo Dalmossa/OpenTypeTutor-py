@@ -6,6 +6,7 @@ import { TypeOrmTypingSessionRepository } from './infrastructure/repositories/Ty
 import { TypeOrmKeyPerformanceRepository } from './infrastructure/repositories/TypeOrmKeyPerformanceRepository.js';
 import { TypeOrmProgressRepository } from './infrastructure/repositories/TypeOrmProgressRepository.js';
 import { TypeOrmProgressCardRepository } from './infrastructure/repositories/TypeOrmProgressCardRepository.js';
+import { TypeOrmPracticePacingRepository } from './infrastructure/repositories/TypeOrmPracticePacingRepository.js';
 import { InMemoryNGramRepository } from './infrastructure/repositories/InMemoryNGramRepository.js';
 import { BcryptPasswordHasher } from './infrastructure/auth/BcryptPasswordHasher.js';
 import { AuthPasswordValidator } from './infrastructure/auth/AuthPasswordValidator.js';
@@ -33,6 +34,7 @@ import { GetUserProgress } from './application/use-cases/GetUserProgress.js';
 import { CheckErgonomicSafety } from './application/use-cases/CheckErgonomicSafety.js';
 import { GetNextPedagogicalLesson } from './application/use-cases/GetNextPedagogicalLesson.js';
 import { SubmitProgressCard } from './application/use-cases/SubmitProgressCard.js';
+import { GetPracticeStatus } from './application/use-cases/GetPracticeStatus.js';
 
 async function main(): Promise<void> {
   const dataSource = createDataSource();
@@ -46,6 +48,7 @@ async function main(): Promise<void> {
   const keyPerformanceRepository = new TypeOrmKeyPerformanceRepository(dataSource);
   const progressRepository = new TypeOrmProgressRepository(dataSource);
   const progressCardRepository = new TypeOrmProgressCardRepository(dataSource);
+  const pacingRepository = new TypeOrmPracticePacingRepository(dataSource);
 
   const passwordHasher = new BcryptPasswordHasher();
   const passwordValidator = new AuthPasswordValidator();
@@ -75,7 +78,7 @@ async function main(): Promise<void> {
     updateUserLayout: new UpdateUserLayout(userProfileRepository),
     listLessons: new ListLessons(lessonRepository, userProfileRepository),
     getLesson: new GetLesson(lessonRepository),
-    startSession: new StartTypingSession(sessionRepository, lessonRepository, userProfileRepository),
+    startSession: new StartTypingSession(sessionRepository, lessonRepository, userProfileRepository, pacingRepository),
     pauseSession: new PauseTypingSession(sessionRepository),
     resumeSession: new ResumeTypingSession(sessionRepository),
     abandonSession: new AbandonTypingSession(sessionRepository),
@@ -83,7 +86,8 @@ async function main(): Promise<void> {
       sessionRepository,
       keyPerformanceRepository,
       progressRepository,
-      lessonRepository
+      lessonRepository,
+      pacingRepository
     ),
     getReinforcementLesson: new GetReinforcementLesson(
       userProfileRepository,
@@ -95,6 +99,7 @@ async function main(): Promise<void> {
     getNextPedagogicalLesson: new GetNextPedagogicalLesson(progressCardRepository, lessonRepository),
     submitProgressCard: new SubmitProgressCard(progressCardRepository, lessonRepository),
     checkErgonomicSafety: new CheckErgonomicSafety(),
+    getPracticeStatus: new GetPracticeStatus(pacingRepository),
   });
 
   const PORT = Number(process.env.PORT ?? 3000);

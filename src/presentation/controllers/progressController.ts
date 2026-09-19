@@ -1,5 +1,6 @@
 import type { Request, Response } from 'express';
 import type {
+  GetPracticeStatusPort,
   GetReinforcementLessonPort,
   GetUserKeyPerformancePort,
   GetUserProgressPort,
@@ -10,7 +11,8 @@ export class ProgressController {
   constructor(
     private readonly getReinforcementLesson: GetReinforcementLessonPort,
     private readonly getUserProgress: GetUserProgressPort,
-    private readonly getUserKeyPerformance: GetUserKeyPerformancePort
+    private readonly getUserKeyPerformance: GetUserKeyPerformancePort,
+    private readonly getPracticeStatus: GetPracticeStatusPort
   ) {}
 
   async reinforcementLesson(req: Request, res: Response): Promise<void> {
@@ -28,6 +30,13 @@ export class ProgressController {
   async keyPerformance(req: Request, res: Response): Promise<void> {
     const userId = getAuthUserId(req);
     const result = await this.getUserKeyPerformance.execute(userId);
+    res.json(result);
+  }
+
+  // RN33 - estado de pacing (acumulado, limites e pausa restante) para a UI cronometrar
+  async practiceStatus(req: Request, res: Response): Promise<void> {
+    const userId = getAuthUserId(req);
+    const result = await this.getPracticeStatus.execute(userId);
     res.json(result);
   }
 }

@@ -9,6 +9,7 @@ import { TypeOrmTypingSessionRepository } from '../infrastructure/repositories/T
 import { TypeOrmKeyPerformanceRepository } from '../infrastructure/repositories/TypeOrmKeyPerformanceRepository.js';
 import { TypeOrmProgressRepository } from '../infrastructure/repositories/TypeOrmProgressRepository.js';
 import { TypeOrmProgressCardRepository } from '../infrastructure/repositories/TypeOrmProgressCardRepository.js';
+import { TypeOrmPracticePacingRepository } from '../infrastructure/repositories/TypeOrmPracticePacingRepository.js';
 import { InMemoryNGramRepository } from '../infrastructure/repositories/InMemoryNGramRepository.js';
 import { BcryptPasswordHasher } from '../infrastructure/auth/BcryptPasswordHasher.js';
 import { AuthPasswordValidator } from '../infrastructure/auth/AuthPasswordValidator.js';
@@ -36,6 +37,7 @@ import { GetUserKeyPerformance } from '../application/use-cases/GetUserKeyPerfor
 import { CheckErgonomicSafety } from '../application/use-cases/CheckErgonomicSafety.js';
 import { GetNextPedagogicalLesson } from '../application/use-cases/GetNextPedagogicalLesson.js';
 import { SubmitProgressCard } from '../application/use-cases/SubmitProgressCard.js';
+import { GetPracticeStatus } from '../application/use-cases/GetPracticeStatus.js';
 import { Lesson } from '../domain/entities/Lesson.js';
 import { Layout } from '../domain/value-objects/Layout.js';
 import { SessionId } from '../domain/value-objects/SessionId.js';
@@ -169,6 +171,7 @@ describe('Fase 7 - fluxo completo HTTP→Controller→Use Case→Domain→Reposi
     const keyPerformanceRepository = new TypeOrmKeyPerformanceRepository(dataSource);
     const progressRepository = new TypeOrmProgressRepository(dataSource);
     const progressCardRepository = new TypeOrmProgressCardRepository(dataSource);
+    const pacingRepository = new TypeOrmPracticePacingRepository(dataSource);
     const passwordHasher = new BcryptPasswordHasher();
     const passwordValidator = new AuthPasswordValidator();
     const tokenService = new JwtTokenService();
@@ -197,7 +200,7 @@ describe('Fase 7 - fluxo completo HTTP→Controller→Use Case→Domain→Reposi
       updateUserLayout: new UpdateUserLayout(userProfileRepository),
       listLessons: new ListLessons(lessonRepository, userProfileRepository),
       getLesson: new GetLesson(lessonRepository),
-      startSession: new StartTypingSession(sessionRepository, lessonRepository, userProfileRepository),
+      startSession: new StartTypingSession(sessionRepository, lessonRepository, userProfileRepository, pacingRepository),
       pauseSession: new PauseTypingSession(sessionRepository),
       resumeSession: new ResumeTypingSession(sessionRepository),
       abandonSession: new AbandonTypingSession(sessionRepository),
@@ -205,7 +208,8 @@ describe('Fase 7 - fluxo completo HTTP→Controller→Use Case→Domain→Reposi
         sessionRepository,
         keyPerformanceRepository,
         progressRepository,
-        lessonRepository
+        lessonRepository,
+        pacingRepository
       ),
       getReinforcementLesson: new GetReinforcementLesson(
         userProfileRepository,
@@ -217,6 +221,7 @@ describe('Fase 7 - fluxo completo HTTP→Controller→Use Case→Domain→Reposi
       getNextPedagogicalLesson: new GetNextPedagogicalLesson(progressCardRepository, lessonRepository),
       submitProgressCard: new SubmitProgressCard(progressCardRepository, lessonRepository),
       checkErgonomicSafety: new CheckErgonomicSafety(),
+      getPracticeStatus: new GetPracticeStatus(pacingRepository),
     };
 
     app = createApp(deps);

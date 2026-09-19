@@ -14,10 +14,12 @@ export const TOKENS = {
   SUBMIT_SESSION: 'SubmitTypingSession',
   GET_REINFORCEMENT_LESSON: 'GetReinforcementLesson',
   GET_USER_PROGRESS: 'GetUserProgress',
+  RESET_PROGRESS: 'ResetProgress',
   GET_USER_KEY_PERFORMANCE: 'GetUserKeyPerformance',
   GET_NEXT_PEDAGOGICAL_LESSON: 'GetNextPedagogicalLesson',
   SUBMIT_PROGRESS_CARD: 'SubmitProgressCard',
   CHECK_ERGONOMIC_SAFETY: 'CheckErgonomicSafety',
+  GET_PRACTICE_STATUS: 'GetPracticeStatus',
 } as const;
 
 export type TokenMap = Record<(typeof TOKENS)[keyof typeof TOKENS], unknown>;

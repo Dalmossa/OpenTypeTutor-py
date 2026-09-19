@@ -24,6 +24,7 @@ import type {
   GetNextPedagogicalLessonResponseDTO,
   SubmitProgressCardResponseDTO,
 } from '../application/dtos/ProgressCardDTOs.js';
+import type { PracticeStatusDTO } from '../application/dtos/PracticePacingDTOs.js';
 
 const TEST_USER_ID = '550e8400-e29b-41d4-a716-446655440000';
 const SESSION_ID = '9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d';
@@ -134,6 +135,7 @@ interface TestCalls {
   nextPedagogicalLesson: Mock;
   submitCard: Mock;
   ergonomic: Mock;
+  practiceStatus: Mock;
 }
 
 interface TestContext {
@@ -203,6 +205,16 @@ function buildTestApp(overrides: Partial<AppDependencies> = {}): TestContext {
   const ergonomic = vi.fn(
     (): Promise<CheckErgonomicSafetyResponseDTO> => Promise.resolve(ERGONOMIC_FIXTURE)
   );
+  const practiceStatus = vi.fn(
+    (): Promise<PracticeStatusDTO> =>
+      Promise.resolve({
+        accumulatedActiveMs: 0,
+        practiceBlockMs: 900000,
+        minBreakMs: 180000,
+        breakRequired: false,
+        breakRemainingMs: 0,
+      })
+  );
 
   const deps: AppDependencies = {
     authMiddleware: stubAuth(),
@@ -226,6 +238,7 @@ function buildTestApp(overrides: Partial<AppDependencies> = {}): TestContext {
     getNextPedagogicalLesson: { execute: nextPedagogicalLesson },
     submitProgressCard: { execute: submitCard },
     checkErgonomicSafety: { execute: ergonomic },
+    getPracticeStatus: { execute: practiceStatus },
     ...overrides,
   };
 
@@ -250,6 +263,7 @@ function buildTestApp(overrides: Partial<AppDependencies> = {}): TestContext {
       nextPedagogicalLesson,
       submitCard,
       ergonomic,
+      practiceStatus,
     },
   };
 }
@@ -637,6 +651,14 @@ describe('TASK-060/061 - /me/reinforcement-lesson e /me/progress', () => {
 
     expect(res.status).toBe(200);
     expect(calls.keyPerformance).toHaveBeenCalledWith(TEST_USER_ID);
+  });
+
+  it('RN33 - GET /me/practice-status → 200 com userId do token', async () => {
+    const { app, calls } = buildTestApp();
+    const res = await request(app).get('/me/practice-status').set('Authorization', 'Bearer token');
+
+    expect(res.status).toBe(200);
+    expect(calls.practiceStatus).toHaveBeenCalledWith(TEST_USER_ID);
   });
 });
 

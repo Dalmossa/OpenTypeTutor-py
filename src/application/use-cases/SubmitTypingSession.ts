@@ -2,10 +2,12 @@ import type { ITypingSessionRepository } from '../../domain/repositories/ITyping
 import type { IKeyPerformanceRepository } from '../../domain/repositories/IKeyPerformanceRepository.js';
 import type { IProgressRepository } from '../../domain/repositories/IProgressRepository.js';
 import type { ILessonRepository } from '../../domain/repositories/ILessonRepository.js';
+import type { IPracticePacingRepository } from '../../domain/repositories/IPracticePacingRepository.js';
 import type { TypingSession } from '../../domain/entities/TypingSession.js';
 import { KeyPerformance } from '../../domain/entities/KeyPerformance.js';
 import { KeystrokeEvent } from '../../domain/entities/KeystrokeEvent.js';
 import { Progress } from '../../domain/entities/Progress.js';
+import { PracticePacingState } from '../../domain/entities/PracticePacingState.js';
 import { SessionId } from '../../domain/value-objects/SessionId.js';
 import { MetricsEngine } from '../../domain/services/MetricsEngine.js';
 import { ProgressionEngine } from '../../domain/services/ProgressionEngine.js';
@@ -16,13 +18,16 @@ import {
 } from '../../domain/errors/DomainError.js';
 import { assertSessionOwner } from '../services/sessionCommand.js';
 import type { SubmitTypingSessionDTO, SubmitTypingSessionResponseDTO } from '../dtos/SessionDTOs.js';
+import type { Clock } from '../dtos/PracticePacingDTOs.js';
 
 export class SubmitTypingSession {
   constructor(
     private readonly sessionRepository: ITypingSessionRepository,
     private readonly keyPerformanceRepository: IKeyPerformanceRepository,
     private readonly progressRepository: IProgressRepository,
-    private readonly lessonRepository: ILessonRepository
+    private readonly lessonRepository: ILessonRepository,
+    private readonly pacingRepository: IPracticePacingRepository,
+    private readonly now: Clock = () => new Date()
   ) {}
 
   async execute(dto: SubmitTypingSessionDTO): Promise<SubmitTypingSessionResponseDTO> {
@@ -54,6 +59,15 @@ export class SubmitTypingSession {
     await this.advanceProgress(sessionWithEvents);
 
     await this.sessionRepository.save(finalizedSession);
+
+    // RN33 - acumula a prática ativa da sessão concluída apenas na primeira conclusão (RN14).
+    // ABANDONED jamais chega aqui (RN13).
+    const pacing =
+      (await this.pacingRepository.findByUserId(session.userId)) ??
+      PracticePacingState.create({ userId: session.userId });
+    await this.pacingRepository.save(
+      pacing.recordCompletedSession(metrics.activeDurationMs, this.now())
+    );
 
     return this.toResponse(finalizedSession);
   }

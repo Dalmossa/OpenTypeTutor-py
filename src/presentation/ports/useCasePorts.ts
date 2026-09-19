@@ -3,7 +3,7 @@ import type {
   ListLessonsDTO,
   ListLessonsResponseDTO,
 } from '../../application/dtos/LessonDTOs.js';
-import type { GetUserProgressResponseDTO } from '../../application/dtos/ProgressDTOs.js';
+import type { GetUserProgressResponseDTO, ResetProgressResponseDTO } from '../../application/dtos/ProgressDTOs.js';
 import type { KeyPerformanceDTO } from '../../domain/entities/KeyPerformance.js';
 import type { RefreshTokenDTO, RefreshTokenResponseDTO } from '../../application/dtos/RefreshTokenDTO.js';
 import type { RegisterUserDTO, RegisterUserResponseDTO } from '../../application/dtos/RegisterUserDTO.js';
@@ -28,6 +28,7 @@ import type {
   SubmitProgressCardInputDTO,
   SubmitProgressCardResponseDTO,
 } from '../../application/dtos/ProgressCardDTOs.js';
+import type { PracticeStatusDTO } from '../../application/dtos/PracticePacingDTOs.js';
 
 export interface RegisterUserPort {
   execute(dto: RegisterUserDTO): Promise<RegisterUserResponseDTO>;
@@ -77,6 +78,10 @@ export interface GetUserProgressPort {
   execute(userId: string): Promise<GetUserProgressResponseDTO>;
 }
 
+export interface ResetProgressPort {
+  execute(userId: string): Promise<ResetProgressResponseDTO>;
+}
+
 export interface GetUserKeyPerformancePort {
   execute(userId: string): Promise<KeyPerformanceDTO[]>;
 }
@@ -91,4 +96,8 @@ export interface SubmitProgressCardPort {
 
 export interface CheckErgonomicSafetyPort {
   execute(dto: ErgonomicCheckInput): Promise<CheckErgonomicSafetyResponseDTO>;
+}
+
+export interface GetPracticeStatusPort {
+  execute(userId: string): Promise<PracticeStatusDTO>;
 }

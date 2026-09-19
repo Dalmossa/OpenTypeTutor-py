@@ -6,6 +6,7 @@ import { AbandonTypingSession } from './AbandonTypingSession.js';
 import { InMemoryTypingSessionRepository } from '../../infrastructure/repositories/InMemoryTypingSessionRepository.js';
 import { InMemoryLessonRepository } from '../../infrastructure/repositories/InMemoryLessonRepository.js';
 import { InMemoryUserProfileRepository } from '../../infrastructure/repositories/InMemoryUserProfileRepository.js';
+import { InMemoryPracticePacingRepository } from '../../infrastructure/repositories/InMemoryPracticePacingRepository.js';
 import { Lesson } from '../../domain/entities/Lesson.js';
 import { UserProfile } from '../../domain/entities/UserProfile.js';
 import { TypingSession } from '../../domain/entities/TypingSession.js';
@@ -52,7 +53,12 @@ describe('StartTypingSession', () => {
     sessionRepository = new InMemoryTypingSessionRepository();
     lessonRepository = new InMemoryLessonRepository();
     profileRepository = new InMemoryUserProfileRepository();
-    startTypingSession = new StartTypingSession(sessionRepository, lessonRepository, profileRepository);
+    startTypingSession = new StartTypingSession(
+      sessionRepository,
+      lessonRepository,
+      profileRepository,
+      new InMemoryPracticePacingRepository()
+    );
 
     await lessonRepository.save(createLesson());
   });

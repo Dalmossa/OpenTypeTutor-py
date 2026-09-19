@@ -11,6 +11,7 @@ import { TypeOrmTypingSessionRepository } from './infrastructure/repositories/Ty
 import { TypeOrmKeyPerformanceRepository } from './infrastructure/repositories/TypeOrmKeyPerformanceRepository.js';
 import { TypeOrmProgressRepository } from './infrastructure/repositories/TypeOrmProgressRepository.js';
 import { TypeOrmProgressCardRepository } from './infrastructure/repositories/TypeOrmProgressCardRepository.js';
+import { TypeOrmPracticePacingRepository } from './infrastructure/repositories/TypeOrmPracticePacingRepository.js';
 import { InMemoryNGramRepository } from './infrastructure/repositories/InMemoryNGramRepository.js';
 import { BcryptPasswordHasher } from './infrastructure/auth/BcryptPasswordHasher.js';
 import { AuthPasswordValidator } from './infrastructure/auth/AuthPasswordValidator.js';
@@ -33,9 +34,11 @@ import { SubmitTypingSession } from './application/use-cases/SubmitTypingSession
 import { GetReinforcementLesson } from './application/use-cases/GetReinforcementLesson.js';
 import { GetUserKeyPerformance } from './application/use-cases/GetUserKeyPerformance.js';
 import { GetUserProgress } from './application/use-cases/GetUserProgress.js';
+import { ResetProgress } from './application/use-cases/ResetProgress.js';
 import { CheckErgonomicSafety } from './application/use-cases/CheckErgonomicSafety.js';
 import { GetNextPedagogicalLesson } from './application/use-cases/GetNextPedagogicalLesson.js';
 import { SubmitProgressCard } from './application/use-cases/SubmitProgressCard.js';
+import { GetPracticeStatus } from './application/use-cases/GetPracticeStatus.js';
 import { AppNestModule, type NestDependencyValues } from './presentation/nest/appNest.js';
 import { TOKENS } from './presentation/nest/nestTokens.js';
 import { AppExceptionFilter } from './presentation/nest/app-exception.filter.js';
@@ -62,6 +65,7 @@ async function bootstrap(): Promise<void> {
   const keyPerformanceRepository = new TypeOrmKeyPerformanceRepository(dataSource);
   const progressRepository = new TypeOrmProgressRepository(dataSource);
   const progressCardRepository = new TypeOrmProgressCardRepository(dataSource);
+  const pacingRepository = new TypeOrmPracticePacingRepository(dataSource);
 
   const passwordHasher = new BcryptPasswordHasher();
   const passwordValidator = new AuthPasswordValidator();
@@ -77,7 +81,7 @@ async function bootstrap(): Promise<void> {
     [TOKENS.UPDATE_USER_LAYOUT]: new UpdateUserLayout(userProfileRepository),
     [TOKENS.LIST_LESSONS]: new ListLessons(lessonRepository, userProfileRepository),
     [TOKENS.GET_LESSON]: new GetLesson(lessonRepository),
-    [TOKENS.START_SESSION]: new StartTypingSession(sessionRepository, lessonRepository, userProfileRepository),
+    [TOKENS.START_SESSION]: new StartTypingSession(sessionRepository, lessonRepository, userProfileRepository, pacingRepository),
     [TOKENS.PAUSE_SESSION]: new PauseTypingSession(sessionRepository),
     [TOKENS.RESUME_SESSION]: new ResumeTypingSession(sessionRepository),
     [TOKENS.ABANDON_SESSION]: new AbandonTypingSession(sessionRepository),
@@ -85,7 +89,8 @@ async function bootstrap(): Promise<void> {
       sessionRepository,
       keyPerformanceRepository,
       progressRepository,
-      lessonRepository
+      lessonRepository,
+      pacingRepository
     ),
     [TOKENS.GET_REINFORCEMENT_LESSON]: new GetReinforcementLesson(
       userProfileRepository,
@@ -93,10 +98,18 @@ async function bootstrap(): Promise<void> {
       nGramRepository
     ),
     [TOKENS.GET_USER_PROGRESS]: new GetUserProgress(progressRepository, lessonRepository),
+    [TOKENS.RESET_PROGRESS]: new ResetProgress(
+      sessionRepository,
+      keyPerformanceRepository,
+      progressCardRepository,
+      progressRepository,
+      userProfileRepository
+    ),
     [TOKENS.GET_USER_KEY_PERFORMANCE]: new GetUserKeyPerformance(userProfileRepository, keyPerformanceRepository),
     [TOKENS.GET_NEXT_PEDAGOGICAL_LESSON]: new GetNextPedagogicalLesson(progressCardRepository, lessonRepository),
     [TOKENS.SUBMIT_PROGRESS_CARD]: new SubmitProgressCard(progressCardRepository, lessonRepository),
     [TOKENS.CHECK_ERGONOMIC_SAFETY]: new CheckErgonomicSafety(),
+    [TOKENS.GET_PRACTICE_STATUS]: new GetPracticeStatus(pacingRepository),
   };
 
   const app = await NestFactory.create<NestExpressApplication>(AppNestModule.forRoot(deps));
@@ -108,7 +121,7 @@ async function bootstrap(): Promise<void> {
   if (allowedOrigins.length > 0) {
     app.enableCors({
       origin: allowedOrigins,
-      methods: 'GET,POST,PATCH',
+      methods: 'GET,POST,PATCH,DELETE',
       allowedHeaders: 'content-type,authorization',
       exposedHeaders: 'content-type',
       maxAge: 3600,

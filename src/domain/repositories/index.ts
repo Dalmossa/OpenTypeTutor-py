@@ -6,3 +6,4 @@ export { IKeyPerformanceRepository } from './IKeyPerformanceRepository.js';
 export { IProgressRepository } from './IProgressRepository.js';
 export { IProgressCardRepository } from './IProgressCardRepository.js';
 export { INGramRepository } from './INGramRepository.js';
+export { IPracticePacingRepository } from './IPracticePacingRepository.js';

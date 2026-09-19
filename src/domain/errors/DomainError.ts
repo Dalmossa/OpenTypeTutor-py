@@ -96,3 +96,11 @@ export class DiscomfortSignaledError extends DomainError {
     super(message);
   }
 }
+
+export class BreakRequiredError extends DomainError {
+  readonly code = 'BREAK_REQUIRED';
+  readonly statusCode = 409;
+  constructor(message: string) {
+    super(message);
+  }
+}

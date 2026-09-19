@@ -12,3 +12,5 @@ export { ProgressEntity } from './ProgressEntity.js';
 export type { ProgressRow } from './ProgressEntity.js';
 export { ProgressCardEntity } from './ProgressCardEntity.js';
 export type { ProgressCardRow } from './ProgressCardEntity.js';
+export { PracticePacingEntity } from './PracticePacingEntity.js';
+export type { PracticePacingRow } from './PracticePacingEntity.js';

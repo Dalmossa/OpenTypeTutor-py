@@ -6,10 +6,11 @@ import type { Server } from 'node:http';
 import { AppError } from '../../shared/errors/AppError.js';
 import type { LessonDTO } from '../../domain/entities/Lesson.js';
 import type { SessionMetricsProps } from '../../domain/entities/SessionMetrics.js';
-import type { GetUserProgressResponseDTO } from '../../application/dtos/ProgressDTOs.js';
+import type { GetUserProgressResponseDTO, ResetProgressResponseDTO } from '../../application/dtos/ProgressDTOs.js';
 import type { SessionCommandResponseDTO } from '../../application/dtos/SessionDTOs.js';
 import type { RefreshTokenResponseDTO } from '../../application/dtos/RefreshTokenDTO.js';
 import type { GetUserResponseDTO, UpdateUserLayoutResponseDTO } from '../../application/dtos/UserDTOs.js';
+import type { PracticeStatusDTO } from '../../application/dtos/PracticePacingDTOs.js';
 import type {
   CheckErgonomicSafetyResponseDTO,
   GetNextPedagogicalLessonResponseDTO,
@@ -108,10 +109,12 @@ interface TestCalls {
   submit: Mock;
   reinforcement: Mock;
   progress: Mock;
+  resetProgress: Mock;
   keyPerformance: Mock;
   nextPedagogicalLesson: Mock;
   submitCard: Mock;
   ergonomic: Mock;
+  practiceStatus: Mock;
 }
 
 async function buildNestApp(overrides: Partial<NestDependencyValues> = {}): Promise<{
@@ -169,6 +172,7 @@ async function buildNestApp(overrides: Partial<NestDependencyValues> = {}): Prom
   );
   const reinforcement = vi.fn((): Promise<LessonDTO> => Promise.resolve(LESSON_FIXTURE));
   const progress = vi.fn((): Promise<GetUserProgressResponseDTO> => Promise.resolve(PROGRESS_FIXTURE));
+  const resetProgress = vi.fn((): Promise<ResetProgressResponseDTO> => Promise.resolve({ reset: true }));
   const keyPerformance = vi.fn((): Promise<unknown[]> => Promise.resolve([]));
   const nextPedagogicalLesson = vi.fn(
     (): Promise<GetNextPedagogicalLessonResponseDTO> => Promise.resolve(PEDAGOGICAL_LESSON_FIXTURE)
@@ -178,6 +182,16 @@ async function buildNestApp(overrides: Partial<NestDependencyValues> = {}): Prom
   );
   const ergonomic = vi.fn(
     (): Promise<CheckErgonomicSafetyResponseDTO> => Promise.resolve(ERGONOMIC_FIXTURE)
+  );
+  const practiceStatus = vi.fn(
+    (): Promise<PracticeStatusDTO> =>
+      Promise.resolve({
+        accumulatedActiveMs: 0,
+        practiceBlockMs: 900000,
+        minBreakMs: 180000,
+        breakRequired: false,
+        breakRemainingMs: 0,
+      })
   );
   const tokenService = {
     signAccessToken: vi.fn(() => 'access-token'),
@@ -208,10 +222,12 @@ async function buildNestApp(overrides: Partial<NestDependencyValues> = {}): Prom
     [TOKENS.SUBMIT_SESSION]: { execute: submit },
     [TOKENS.GET_REINFORCEMENT_LESSON]: { execute: reinforcement },
     [TOKENS.GET_USER_PROGRESS]: { execute: progress },
+    [TOKENS.RESET_PROGRESS]: { execute: resetProgress },
     [TOKENS.GET_USER_KEY_PERFORMANCE]: { execute: keyPerformance },
     [TOKENS.GET_NEXT_PEDAGOGICAL_LESSON]: { execute: nextPedagogicalLesson },
     [TOKENS.SUBMIT_PROGRESS_CARD]: { execute: submitCard },
     [TOKENS.CHECK_ERGONOMIC_SAFETY]: { execute: ergonomic },
+    [TOKENS.GET_PRACTICE_STATUS]: { execute: practiceStatus },
     ...overrides,
   };
 
@@ -240,10 +256,12 @@ async function buildNestApp(overrides: Partial<NestDependencyValues> = {}): Prom
       submit,
       reinforcement,
       progress,
+      resetProgress,
       keyPerformance,
       nextPedagogicalLesson,
       submitCard,
       ergonomic,
+      practiceStatus,
     },
   };
 }
@@ -384,9 +402,9 @@ describe('Nest - rotas de sessão, lições e pedagógico (TASK-082)', () => {
     await app.close();
   });
 
-  it('GET /progress → 200', async () => {
+  it('GET /me/progress → 200', async () => {
     const { app, calls } = await buildNestApp();
-    const res = await request(httpServer(app)).get('/progress').set('Authorization', 'Bearer valid');
+    const res = await request(httpServer(app)).get('/me/progress').set('Authorization', 'Bearer valid');
 
     expect(res.status).toBe(200);
     expect(res.body).toEqual(PROGRESS_FIXTURE);
@@ -394,13 +412,33 @@ describe('Nest - rotas de sessão, lições e pedagógico (TASK-082)', () => {
     await app.close();
   });
 
-  it('GET /key-performance → 200', async () => {
+  it('GET /me/key-performance → 200', async () => {
     const { app, calls } = await buildNestApp();
-    const res = await request(httpServer(app)).get('/key-performance').set('Authorization', 'Bearer valid');
+    const res = await request(httpServer(app)).get('/me/key-performance').set('Authorization', 'Bearer valid');
 
     expect(res.status).toBe(200);
     expect(res.body).toEqual([]);
     expect(calls.keyPerformance).toHaveBeenCalledOnce();
+    await app.close();
+  });
+
+  it('RN31 - DELETE /me/progress → 200 e reseta o progresso', async () => {
+    const { app, calls } = await buildNestApp();
+    const res = await request(httpServer(app)).delete('/me/progress').set('Authorization', 'Bearer valid');
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ reset: true });
+    expect(calls.resetProgress).toHaveBeenCalledOnce();
+    await app.close();
+  });
+
+  it('RN31 - DELETE /me/progress sem token → 401 UNAUTHORIZED', async () => {
+    const { app, calls } = await buildNestApp();
+    const res = await request(httpServer(app)).delete('/me/progress');
+
+    expect(res.status).toBe(401);
+    expect(asErrorBody(res.body).error.code).toBe('UNAUTHORIZED');
+    expect(calls.resetProgress).not.toHaveBeenCalled();
     await app.close();
   });
 });

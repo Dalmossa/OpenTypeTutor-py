@@ -43,6 +43,11 @@ export const ERROR_CODES: Record<string, ErrorCatalogEntry> = {
     statusCode: 429,
     message: 'Muitas tentativas de login. Tente novamente mais tarde',
   },
+  BREAK_REQUIRED: {
+    statusCode: 409,
+    message:
+      'Hora de descansar: faça uma pausa de pelo menos 3 minutos (alongue os braços, beba água e mexa as pernas) antes de iniciar a próxima lição',
+  },
 };
 
 export function findByErrorCode(code: string): ErrorCatalogEntry | undefined {

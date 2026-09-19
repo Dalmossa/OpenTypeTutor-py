@@ -6,5 +6,6 @@ export function createProgressRoutes(controller: ProgressController): express.Ro
   router.get('/reinforcement-lesson', (req, res) => controller.reinforcementLesson(req, res));
   router.get('/progress', (req, res) => controller.progress(req, res));
   router.get('/key-performance', (req, res) => controller.keyPerformance(req, res));
+  router.get('/practice-status', (req, res) => controller.practiceStatus(req, res));
   return router;
 }

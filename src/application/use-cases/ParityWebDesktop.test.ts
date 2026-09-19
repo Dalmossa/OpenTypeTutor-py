@@ -4,6 +4,7 @@ import { InMemoryTypingSessionRepository } from '../../infrastructure/repositori
 import { InMemoryKeyPerformanceRepository } from '../../infrastructure/repositories/InMemoryKeyPerformanceRepository.js';
 import { InMemoryProgressRepository } from '../../infrastructure/repositories/InMemoryProgressRepository.js';
 import { InMemoryLessonRepository } from '../../infrastructure/repositories/InMemoryLessonRepository.js';
+import { InMemoryPracticePacingRepository } from '../../infrastructure/repositories/InMemoryPracticePacingRepository.js';
 import { Lesson } from '../../domain/entities/Lesson.js';
 import { TypingSession } from '../../domain/entities/TypingSession.js';
 import { SessionId } from '../../domain/value-objects/SessionId.js';
@@ -96,7 +97,8 @@ describe('TASK-081 - Paridade web vs desktop MÉTRICAS', () => {
       sessionRepository,
       keyPerformanceRepository,
       progressRepository,
-      lessonRepository
+      lessonRepository,
+      new InMemoryPracticePacingRepository()
     );
 
     await lessonRepository.save(
