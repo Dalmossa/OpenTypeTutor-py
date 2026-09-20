@@ -42,6 +42,9 @@ import { GetNextPedagogicalLesson } from "./application/use-cases/GetNextPedagog
 import { SubmitProgressCard } from "./application/use-cases/SubmitProgressCard.js";
 import { GetPracticeStatus } from "./application/use-cases/GetPracticeStatus.js";
 import { GetLessonPerformance } from "./application/use-cases/GetLessonPerformance.js";
+import { GetDashboardHabits } from "./application/use-cases/GetDashboardHabits.js";
+import { GetDashboardMastery } from "./application/use-cases/GetDashboardMastery.js";
+import { GetDashboardProximity } from "./application/use-cases/GetDashboardProximity.js";
 import {
   AppNestModule,
   type NestDependencyValues,
@@ -155,6 +158,19 @@ async function bootstrap(): Promise<void> {
     [TOKENS.GET_PRACTICE_STATUS]: new GetPracticeStatus(pacingRepository),
     [TOKENS.GET_LESSON_PERFORMANCE]: new GetLessonPerformance(
       sessionRepository,
+    ),
+    [TOKENS.GET_DASHBOARD_HABITS]: new GetDashboardHabits(
+      userProfileRepository,
+      dailyAggregateRepository,
+    ),
+    [TOKENS.GET_DASHBOARD_MASTERY]: new GetDashboardMastery(
+      userProfileRepository,
+      keyPerformanceRepository,
+      masteryTransitionRepository,
+    ),
+    [TOKENS.GET_DASHBOARD_PROXIMITY]: new GetDashboardProximity(
+      userProfileRepository,
+      keyPerformanceRepository,
     ),
   };
 
