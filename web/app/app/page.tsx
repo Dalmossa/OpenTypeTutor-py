@@ -48,9 +48,15 @@ export default function AppHomePage(): ReactNode {
         >
           Progresso
         </Link>
+        <Link
+          href="/app/dashboard"
+          className="rounded-md border border-slate-300 px-4 py-2 text-slate-700"
+        >
+          Dashboard
+        </Link>
       </div>
       <p className="text-sm text-slate-500">
-        Tela de sessão de digitação (TASK-076) e dashboard (TASK-077) nas próximas etapas.
+        Sessão de digitação, progresso por tecla e dashboard de evolução (PPM, precisão, latência).
       </p>
     </div>
   );

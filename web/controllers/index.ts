@@ -1,13 +1,14 @@
-import type { ApiClient } from '@/services/api-client';
-import { createApiClient } from '@/services/api-client';
-import { AuthController } from './auth-controller';
-import { LessonController } from './lesson-controller';
-import { PedagogicalController } from './pedagogical-controller';
-import { ProgressController } from './progress-controller';
-import { SessionController } from './session-controller';
-import { UserController } from './user-controller';
+import type { ApiClient } from "@/services/api-client";
+import { createApiClient } from "@/services/api-client";
+import { AuthController } from "./auth-controller";
+import { DashboardController } from "./dashboard-controller";
+import { LessonController } from "./lesson-controller";
+import { PedagogicalController } from "./pedagogical-controller";
+import { ProgressController } from "./progress-controller";
+import { SessionController } from "./session-controller";
+import { UserController } from "./user-controller";
 
-export { ApiError } from '@/services/api-client';
+export { ApiError } from "@/services/api-client";
 
 export interface Controllers {
   auth: AuthController;
@@ -16,9 +17,12 @@ export interface Controllers {
   pedagogical: PedagogicalController;
   progress: ProgressController;
   sessions: SessionController;
+  dashboard: DashboardController;
 }
 
-export function createControllers(api: ApiClient = createApiClient()): Controllers {
+export function createControllers(
+  api: ApiClient = createApiClient(),
+): Controllers {
   return {
     auth: new AuthController(api),
     user: new UserController(api),
@@ -26,5 +30,6 @@ export function createControllers(api: ApiClient = createApiClient()): Controlle
     pedagogical: new PedagogicalController(api),
     progress: new ProgressController(api),
     sessions: new SessionController(api),
+    dashboard: new DashboardController(api),
   };
 }

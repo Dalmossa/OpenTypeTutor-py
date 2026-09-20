@@ -15,9 +15,14 @@ export function AppNav(): ReactNode {
         <nav className="flex gap-4 text-sm font-medium">
           <Link href="/app" className="text-slate-900">Início</Link>
           {user !== null && (
-            <Link href="/app/progress" className="text-slate-600 hover:text-slate-900">
-              Progresso
-            </Link>
+            <>
+              <Link href="/app/progress" className="text-slate-600 hover:text-slate-900">
+                Progresso
+              </Link>
+              <Link href="/app/dashboard" className="text-slate-600 hover:text-slate-900">
+                Dashboard
+              </Link>
+            </>
           )}
         </nav>
         {user !== null && (
