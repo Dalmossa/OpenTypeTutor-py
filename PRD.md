@@ -2,7 +2,7 @@
 
 ## OpenType Tutor — Backend REST API
 
-**Versão:** 1.6
+**Versão:** 1.7
 **Status:** Ativo — pronto para implementação completa (Domain Core + Infrastructure), pendências "A VALIDAR" resolvidas (ADR-010)
 **Tipo:** Product Requirements Document (PRD)
 **Arquitetura:** Clean Architecture + DDD + SOLID
@@ -13,6 +13,7 @@
 
 **Changelog:**
 
+- v1.7 → Adiciona **RN38 — Teclado numérico virtual** (layout espelha o físico: ponto `NumDec` à direita do `Num6`, `NumEnter` com 2 linhas à direita do `Num3`), **RN39 — dica visual de tecla** (a tecla aguardada pisca quando a demora ultrapassa `KEY_HINT_TIMEOUT_MS`, o tempo médio padrão de digitação por caractere — §26) e **RN40 — tela de conclusão de lição** (o botão azul "Avançar" sempre que o motor decidir `advance` na RN26, independente de erros finais — estes apenas orientam a mensagem; "Pausar"/"Retomar" e "Repetir lição" permanecem). Limiar paramétrico de dica `KEY_HINT_TIMEOUT_MS` adicionado a §26. Mudanças de apresentação no cliente web (ADR-018 — nenhuma RN revertida no backend).
 - v1.6 → Adiciona a **Fase 9 — Dashboard do progresso** (RN34–RN37, RNF11, ADR-020): mapa de calor de teclas (RN34), tendência de evolução por período (WPM/acurácia/latência, RN35), **MasteryProximityIndex** ([0,1] por tecla com pesos `w_accuracy=0.35`/`w_latency=0.25`/`w_streak=0.25`/`w_attempts=0.15` recomendados e validados — RN36) e fuso horário do usuário para agregação por dia calendário local (`UserProfile.timezone`, default `America/Sao_Paulo` — RN37). Parametriza `MPI_*`/`DAILY_*` em §26, adiciona RNF11 (produto, quantitativo: `p95 ≤ 500ms` para 1 ano de dados por semana, autocannon; resolução por agregação pré-computada — ADR-020) e adiciona FASE 9 a §30.
 - v1.5 → Adiciona **RN33 — Pacing de prática** (ergonomia por tempo): bloco de 15 minutos de prática ativa acumulada → pausa mínima de 3 minutos antes de iniciar nova sessão; a lição em curso nunca é interrompida. Parametriza `PRACTICE_BLOCK_DURATION_MS`/`MIN_BREAK_DURATION_MS` em §26 e adiciona `BREAK_REQUIRED` ao catálogo §28.5.
 - v1.4 → Auditoria de requisitos contra Sommerville (Cap. 6): adiciona §2.3 (Requisitos de Usuário, nível não técnico, obrigatórios "deve"/desejáveis "pode"); adiciona §27.1 (classificação de cada RN em funcional/não funcional/domínio, com prioridade, justificativa e fonte); reestrutura §28 em produto/organizacionais/externos com critérios verificáveis e adiciona §28.4 (conflitos conhecidos entre RNFs) — o catálogo de erros, antes §28.1, passa a §28.5; move as decisões de configuração (`BCRYPT_SALT_ROUNDS`, expirações JWT) para nota explícita em §13.3; parametriza os thresholds da RN22 (`MIN_SESSION_DURATION_MS`, `MIN_SESSION_CHARACTERS`) em §26; adiciona RNF09 (idioma, externo) e RNF10 (escopo externo pendente); e **alinha a Seção 26 ao estado entregue da Fase 3** (`JWT_EXPIRATION = 24h` substituído por `JWT_ACCESS_EXPIRATION = 15m` + `JWT_REFRESH_EXPIRATION = 30d`, conforme TASK-034a–d e ADR-013).
@@ -751,6 +752,11 @@ MPI_BAND_FAR_THRESHOLD = 0.20
 MPI_BAND_CLOSE_THRESHOLD = 0.50
 MPI_BAND_VERGE_THRESHOLD = 0.80
 
+# RN39 — tempo médio padrão de digitação por caractere (dica visual da tecla aguardada).
+# 3x a latência de referência de 500ms (LATENCY_REFERENCE_MS). Constante do cliente web
+# (web/lib/typing-hints.ts) — nenhuma RN no cliente (ADR-018), sempre ressignificável.
+KEY_HINT_TIMEOUT_MS = 1500
+
 # infrastructure/auth/authParams.ts — VALIDADO (valores de segurança, não de produto)
 BCRYPT_SALT_ROUNDS = 12
 JWT_ACCESS_EXPIRATION = 15m
@@ -801,6 +807,9 @@ MIN_PASSWORD_LENGTH = 8
 | RN35 | Dashboard — tendência de evolução: séries diárias de `netWpm`, precisão (%) e latência média (ms) por dia calendário local (RN37), agregadas num `DailyMetricsAggregate` pré-computado e consultáveis nas janelas `DASHBOARD_TREND_WINDOWS_DAYS` (7/30/90 dias)                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | RN36 | Dashboard — `MasteryProximityIndex`: score ∈ [0,1] por tecla medindo a distância ao envelope da regra de mastery (RN09) — `MPI = w_accuracy·min(1, keyAccuracy/MASTERY_ACCURACY) + w_latency·latTerm + w_streak·min(1, consecutiveMasterySessions/MASTERY_CONSECUTIVE_SESSIONS) + w_attempts·min(1, attempts/MASTERY_ATTEMPTS)` com `latTerm = 0` se `averageLatencyMs = 0` (senão `clamp(1 − averageLatencyMs/MASTERY_LATENCY_MS, 0, 1)`) e `Σw = 1`; MPI atinge 1,0 somente quando os 4 gates do RN09 estão todos satisfeitos; faixas para a UI: `longe` (<0,20), `em progresso` (0,20–0,50), `próximo` (0,50–0,80), `às vésperas` (≥0,80) — pesos e limiares em §26 (`MPI_*`) |
 | RN37 | Dashboard — fuso horário do usuário: `UserProfile.timezone` (IANA, default `America/Sao_Paulo`) define o dia calendário local usado na agregação diária (RN35) e nos rótulos — usuários em qualquer fuso têm agregações e rótulos corretos independentemente do relógio do servidor (UTC)                                                                                                                                                                                                                                                                                                                                                                                        |
+| RN38 | Teclado numérico virtual espelha o teclado físico: a tecla decimal (`NumDec`, exibida como ponto) fica **à direita do `Num6`**, e `NumEnter` ocupa duas linhas à direita do `Num3` (uma ao lado do `Num3`, continuando até a linha da base do `Num0`) — padrão da maioria dos teclados ABNT2/US físicos                                                                                                                                                                                                                                                                                                                                                                          |
+| RN39 | Dica visual de tecla: quando a demora do usuário na tecla aguardada ultrapassa `KEY_HINT_TIMEOUT_MS` (tempo médio padrão de digitação por caractere, §26), o teclado virtual pisca essa tecla — dígitos apontam para `Num0`–`Num9`, ponto/vírgula logo após um dígito apontam para `NumDec`, espaço para `Space`, caractere acentuado aponta para a tecla-base (tecla morta + tecla); a dica reinicia a cada avanço de posição e é suspensa durante composição de tecla morta                                                                                                                                                                                                    |
+| RN40 | Tela de conclusão de lição: o botão azul **"Avançar"** renderiza sempre que o motor pedagógico decidir `advance` (RN26) com próxima lição disponível — a presença de erros finais **não** remove o botão, apenas a mensagem orienta a repetição ("A lição avançou, mas ficaram N erros finais…"); nos demais motivos surgem "Repetir lição" e/ou "Voltar às lições"; o botão **"Pausar"/"Retomar"** permanece disponível durante toda a sessão ativa (cliente, ADR-018)                                                                                                                                                                                                          |
 
 ---
 
@@ -847,6 +856,9 @@ Cada RN é classificada conforme Sommerville §6.1: **F** (funcional — serviç
 | RN35 | F    | Deve       | Ver a evolução ao longo de janelas de tempo é o insumo central de motivação e meta-avaliação do treino (progresso perceptível).                                                                                                                                                     | Feedback de produto (Fase 9); ADR-020             |
 | RN36 | D    | Deve       | "Distância à maestria" é um conceito de domínio — deriva dos mesmos gates do RN09 com pesos explícitos e testáveis; um índice único permite priorizar teclas de forma legível no dashboard.                                                                                         | ADR-020; RN04 (precedente de pesos); RN09         |
 | RN37 | NF   | Deve       | Agregar por dia calendário usando o fuso do usuário (e não UTC do servidor) evita rótulos e contagens erradas de dia — consistência temporal por perfil.                                                                                                                            | Feedback de produto (Fase 9); ADR-020             |
+| RN38 | F    | Deve       | Refletir o teclado físico no numpad visual reduz fricção e confusão ao treinar a fase `NUMERIC_KEYPAD` — a tecla certa aparece onde o usuário espera.                                                                                                                               | Feedback de usuário (web); RN25                   |
+| RN39 | NF   | Deve       | Feedback não intrusivo de "onde está a tecla" ajuda o iniciante a localizar a tecla sem olhar para o teclado real — aliado pedagógico da RN26 (confirmação de não olhar).                                                                                                           | Feedback de usuário (web); UX; RN26               |
+| RN40 | F    | Deve       | O critério de avanço já é decidido pelo motor (RN26); travar o botão por erros finais criava dupla barreira e frustrava — o botão azul é consequência da decisão do motor e a mensagem orienta.                                                                                     | Feedback de usuário (web); RN26, ADR-018          |
 
 Notas:
 
@@ -854,6 +866,7 @@ Notas:
 - RN22: o _efeito funcional_ (sessão insuficiente → métricas nulas) é acionado por _thresholds não funcionais_ — os literais `3000ms` e `5 chars` são parâmetros nomeados (`MIN_SESSION_DURATION_MS`, `MIN_SESSION_CHARACTERS`), agora em §26, nunca inline.
 - RN24–RN33 implementam a metodologia pedagógica do Prompt-Pedagogico.md (Andragogia, progressão em fases, critério de avanço rigoroso, Cartão de Progresso, regra de segurança, variação antes de repetição, fechamento de sessão), o requisito de reset de progresso (RN31, §2.3.1 item 12), o status visual por lição (RN32, feedback de UX) e o pacing de prática com pausas preventivas (RN33).
 - RN34–RN37 (Fase 9) são a camada de **dashboard**: serviço de domínio novo (`DailyMetricsAggregate`, `MasteryProximityIndex`, `KeyMasteryTransition`) consumido por 3 rotas `GET /me/dashboard/*` — nenhuma agregação pesada por request (pré-computação, ADR-020) para atender a RNF11 (p95 ≤ 500ms em 1 ano de dados).
+- RN38–RN40 são **apresentação do cliente web** (ADR-018): espelham o teclado físico (RN38), dão dica visual de tecla quando o ritmo fica abaixo do tempo médio padrão (RN39) e destravam o botão-de-avanço do veredito do motor (RN40) — nenhuma regra de negócio nova no backend; motivos/lições continuam vindos do motor via REST.
 
 ---
 
@@ -1006,14 +1019,132 @@ A implementação começa pelo domínio e seus testes. Controllers, TypeORM ou b
 
 ---
 
-## 33. Estado Atual
+## 33. Deployment & Operations
 
-**PRD v1.6 — Ativo (aprovado para implementação); a Fase 9 (Dashboard) foi especificada (RN34–RN37, RNF11, ADR-020) com a recomendação de pesos do `MasteryProximityIndex` validada (`MPI_W_ACCURACY=0.35`, `MPI_W_LATENCY=0.25`, `MPI_W_STREAK=0.25`, `MPI_W_ATTEMPTS=0.15`).**
+### 33.1 Variáveis de Ambiente
+
+| Variável             | Obrigatória     | Descrição                                                                   | Valor Padrão             |
+| -------------------- | --------------- | --------------------------------------------------------------------------- | ------------------------ |
+| `PORT`               | Não             | Porta do servidor HTTP (Nest.js)                                            | `3000`                   |
+| `CORS_ORIGINS`       | Não             | Origens permitidas para CORS (lista separada por vírgula); vazio = sem CORS | `""`                     |
+| `BACKEND_URL`        | Sim (build web) | URL do backend para o Next.js (`NEXT_PUBLIC_API_URL` no build)              | —                        |
+| `JWT_ACCESS_SECRET`  | Sim             | Chave secreta para assinar access tokens (HS256)                            | —                        |
+| `JWT_REFRESH_SECRET` | Sim             | Chave secreta para assinar refresh tokens (HS256)                           | —                        |
+| `BCRYPT_SALT_ROUNDS` | Não             | Custo do bcrypt (centralizado em `authParams.ts`)                           | `12`                     |
+| `DATABASE_URL`       | Não             | Caminho do arquivo SQLite                                                   | `./data/opentype.sqlite` |
+| `NODE_ENV`           | Não             | Ambiente de execução                                                        | `development`            |
+
+> **Nota:** Segredos (`JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`) **nunca** devem ser commitados. Usar gerenciador de segredos (ex.: `.env` local, Vault, Kubernetes Secrets) em produção.
+
+### 33.2 Docker / Containerização
+
+```dockerfile
+# Exemplo de Dockerfile para produção
+FROM node:22-alpine AS builder
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci
+COPY . .
+RUN npm run build
+
+FROM node:22-alpine AS runner
+WORKDIR /app
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/package*.json ./
+RUN npm ci --omit=dev
+USER node
+EXPOSE 3000
+CMD ["node", "dist/main-nest.js"]
+```
+
+- **SQLite em arquivo:** O banco persiste no volume montado em `/app/data/opentype.sqlite` (configurar via `DATABASE_URL`).
+- **Health check:** `GET /health` retorna `{ status: "ok", timestamp }` — usar no `docker-compose` ou Kubernetes.
+- **Migrações:** Executar `npm run migrate` no entrypoint ou como job separado antes de subir a API.
+
+### 33.3 CI/CD Pipeline
+
+Pipeline obrigatório (GitHub Actions, GitLab CI, ou equivalente):
+
+```yaml
+# Ordem estrita (CONSTITUTION.md §10): lint → typecheck → test → bench
+stages:
+  - lint:          npm run lint
+  - typecheck:     npm run typecheck
+  - test:          npm run test (cobertura ≥ 90% em domain/)
+  - bench:         npm run bench (RNF06: p95 ≤ 150ms submit)
+  - bench:dashboard: npm run bench:dashboard (RNF11: p95 ≤ 500ms dashboard)
+```
+
+- **Gate de merge:** Pipeline deve passar 100% antes de merge na `main`.
+- **Conventional Commits:** Validado por `commitlint` no hook `commit-msg` (husky).
+- **Artefatos:** Relatório de cobertura (v8) + relatório de benchmark (autocannon) publicados no CI.
+
+### 33.4 Observabilidade Mínima
+
+| Componente            | Ferramenta                   | Configuração                                                                                                          |
+| --------------------- | ---------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| **Logs estruturados** | Pino                         | JSON em produção, pretty em dev; `passwordHash` e JWT completo **nunca** logados (RNF08)                              |
+| **Métricas**          | Prometheus (exporter custom) | `/metrics` expõe: `http_requests_total`, `http_request_duration_seconds`, `submit_latency_ms`, `dashboard_latency_ms` |
+| **Tracing**           | OpenTelemetry                | Contexto propagado via `traceparent` header; amostragem 10%                                                           |
+| **Alertas**           | Prometheus Alertmanager      | `submit_p95 > 150ms` por 5min; `dashboard_p95 > 500ms` por 5min; taxa de erro 5xx > 1%                                |
+
+### 33.5 Backup & Retenção de Dados
+
+| Dado                       | Retenção                      | Backup                                            |
+| -------------------------- | ----------------------------- | ------------------------------------------------- |
+| SQLite (`opentype.sqlite`) | Indefinido (dados do usuário) | Diário (snapshot do arquivo) + antes de migrações |
+| Logs (Pino/JSON)           | 30 dias                       | Rotação diária, compressão gzip                   |
+| Métricas Prometheus        | 90 dias                       | —                                                 |
+| Traces (OpenTelemetry)     | 7 dias                        | —                                                 |
+
+> **LGPD / Direito ao esquecimento:** `DELETE /me/progress` (RN31) apaga progresso do usuário (sessões, `KeyPerformance`, agregados, transições de mastery) mas mantém a conta (`User`) e o `activeLayout`. Para exclusão total da conta, implementar endpoint dedicado com confirmação explícita.
+
+### 33.6 Rollback de Migração
+
+- Toda migração TypeORM (`npm run migrate`) deve ser **reversível** (`down` method implementado).
+- Antes de migração em produção: snapshot do SQLite + teste em staging.
+- Se falha: restaurar snapshot + reverter deploy (versão anterior da imagem Docker).
+
+---
+
+## 34. Threat Model (STRIDE Resumido)
+
+| Ameaça                     | Vetor                                            | Mitigação                                                                                                                                       | Status          |
+| -------------------------- | ------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- | --------------- |
+| **Spoofing**               | JWT roubado → acesso indevido                    | Access token curto (15m) + refresh token rotativo (30d, ADR-010); HTTPS obrigatório em produção; `SameSite=Strict` cookies para refresh         | ✅ Implementado |
+| **Tampering**              | Payload submit alterado                          | HTTPS (TLS 1.2+); validação Zod em todos endpoints; `authMiddleware` valida assinatura JWT                                                      | ✅ Implementado |
+| **Repudiation**            | Usuário nega ação                                | Logs estruturados com `userId` + `requestId` (correlação); não loga senha/JWT completo (RNF08)                                                  | ✅ Implementado |
+| **Information Disclosure** | Vazamento de `passwordHash` ou JWT em logs/erros | `AppError` sanitiza; `toAppError` remove campos sensíveis; Pino omite `passwordHash` (RNF08); `passwordHash` excluído de DTOs (CONSTITUTION §4) | ✅ Implementado |
+| **DoS**                    | Flood em `/auth/login` ou `/auth/refresh`        | Rate limiting em memória por IP (10/15min login, 30/15min refresh); `TOO_MANY_REQUESTS` 429 (ADR-013)                                           | ✅ Implementado |
+| **Elevation of Privilege** | Acesso a recurso de outro usuário                | `authMiddleware` extrai `userId` do token; caso de uso checa posse (`SESSION_NOT_OWNED`, `PROFILE_NOT_OWNED`, RN17)                             | ✅ Implementado |
+
+**Resíduo conhecido:** SQLite single-writer limita concorrência real (ADR-014). Gatilho para PostgreSQL: múltiplos processos/escrita concorrente.
+
+---
+
+## 35. Política LGPD / Retenção de Dados
+
+| Direito do Titular                     | Implementação                                                                                                                                                                                 |
+| -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Acesso**                             | `GET /me/progress`, `GET /me/key-performance`, `GET /me/dashboard/*` retornam todos os dados do usuário                                                                                       |
+| **Retificação**                        | `PATCH /users/me` (layout); correção de e-mail requer re-registro (fora de escopo v1.6)                                                                                                       |
+| **Exclusão (Direito ao Esquecimento)** | `DELETE /me/progress` (RN31) apaga: sessões, `KeyPerformance`, `DailyMetricsAggregate`, `KeyMasteryTransition`, `ProgressCard`; zera nível para 1; **mantém** `User` (conta) e `activeLayout` |
+| **Portabilidade**                      | JSON retornado pelas rotas `/me/*` permite exportação                                                                                                                                         |
+| **Oposição / Restrição**               | Usuário pode parar de usar o serviço; dados retidos conforme política acima                                                                                                                   |
+
+**Retenção padrão:** Dados de progresso mantidos indefinidamente enquanto a conta existir. Logs de acesso: 30 dias. Exclusão total da conta (incluindo `User`) fora de escopo v1.6 — requer endpoint dedicado com confirmação explícita.
+
+---
+
+## 36. Estado Atual
+
+**PRD v1.7 — Ativo (aprovado para implementação); Fase 9 (Dashboard) especificada (RN34–RN37, RNF11, ADR-020) com pesos do `MasteryProximityIndex` validados (`MPI_W_ACCURACY=0.35`, `MPI_W_LATENCY=0.25`, `MPI_W_STREAK=0.25`, `MPI_W_ATTEMPTS=0.15`); RN38–RN40 documentam apresentação do cliente web (numpad, dica de tecla e botão de avanço — ADR-018).**
 
 Histórico consolidado:
 
 - v1.0–v1.4: núcleo de domínio, autenticação (ADR-010), auditoria Sommerville (Requirement Engineering) — `KeyPerformance`, mastery, pools, RNF06 validado.
 - v1.5: RN31 (reset), RN32 (status por lição), RN33 (pacing de prática, ADR-019).
 - v1.6: RN34–RN37 + RNF11 (Fase 9 — dashboard) — ver §27, §28.1, §26 e ADR-020.
+- v1.7: RN38–RN40 (apresentação do cliente web) — ver §27, §26, ADR-018.
 
 Fase 1 (Domain Core) concluída; Fases 2–7 concluídas (backend assíncrono real, 620 testes); Fase 8 concluída (migração web/Nest via ADR-016/017/018); **Fase 9 em implementação** (TASK-092–100). Pendências "A VALIDAR" resolvidas (ADR-010).
