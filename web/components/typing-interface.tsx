@@ -256,7 +256,7 @@ export default function TypingInterface({ session, onBack, onRepeatLesson, onAdv
         <div className="flex gap-3">
           {isPaused ? (
             <button type="button" onClick={() => void session.resume()} className="rounded-md bg-slate-900 px-4 py-2 text-white">
-              Retomar
+              Pausado
             </button>
           ) : (
             <button type="button" onClick={() => void session.pause()} className="rounded-md border border-slate-300 px-4 py-2 text-slate-700">

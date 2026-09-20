@@ -165,6 +165,30 @@ describe('CompletedPanel — RN26 (botão azul Avançar)', () => {
   });
 });
 
+describe('Botão de pausa', () => {
+  it('em digitação mostra Pausar; quando pausado mostra Pausado e retoma no clique', () => {
+    const { rerender } = render(
+      <TypingInterface
+        session={makeSession({ phase: 'typing', state: 'RUNNING', result: null, progress: 0 })}
+        onBack={vi.fn()}
+        onRepeatLesson={vi.fn()}
+        onAdvanceLesson={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole('button', { name: 'Pausar' })).toBeInTheDocument();
+
+    const paused = makeSession({ phase: 'paused', state: 'PAUSED', result: null, progress: 0 });
+    paused.resume = vi.fn();
+    rerender(
+      <TypingInterface session={paused} onBack={vi.fn()} onRepeatLesson={vi.fn()} onAdvanceLesson={vi.fn()} />,
+    );
+    const pausedButton = screen.getByRole('button', { name: 'Pausado' });
+    expect(pausedButton).toBeInTheDocument();
+    pausedButton.click();
+    expect(paused.resume).toHaveBeenCalledOnce();
+  });
+});
+
 describe('VirtualKeyboard hintKey — RN39', () => {
   it('a tecla indicada recebe data-hint=true e classe de blink', () => {
     render(<VirtualKeyboard layout="ABNT2" pressedKeys={new Set()} hintKey="a" />);
