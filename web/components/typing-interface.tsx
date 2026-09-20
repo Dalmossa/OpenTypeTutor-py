@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type {
   CompositionEvent as ReactCompositionEvent,
   FormEvent as ReactFormEvent,
@@ -11,8 +11,9 @@ import type {
 import InfoTip from '@/components/info-tip';
 import VirtualKeyboard from '@/components/virtual-keyboard';
 import { createControllers } from '@/controllers';
-import { buildKeyboardModel, resolveKeyLabel } from '@/lib/virtual-keyboard';
+import { buildKeyboardModel, resolveAwaitedKey, resolveKeyLabel } from '@/lib/virtual-keyboard';
 import { getMetricHelp } from '@/lib/metric-help';
+import { KEY_HINT_TIMEOUT_MS } from '@/lib/typing-hints';
 import type { LessonDTO } from '@/models/lesson';
 import type { PedagogicalReason } from '@/models/pedagogical';
 import type { SubmitSessionResponseDTO } from '@/models/session';
@@ -40,10 +41,33 @@ export default function TypingInterface({ session, onBack, onRepeatLesson, onAdv
   const compositionStrRef = useRef('');
   const [showComposition, setShowComposition] = useState(false);
   const [pressedKeys, setPressedKeys] = useState<ReadonlySet<string>>(new Set());
+  const [hintKey, setHintKey] = useState<string | null>(null);
 
   const lesson = session.lesson;
-  const content = (lesson?.content ?? '').replace(/[\r\n]+/g, ' ');
-  const keyboardModel = buildKeyboardModel(lesson?.layout ?? 'ABNT2');
+  const content = useMemo(
+    () => (lesson?.content ?? '').replace(/[\r\n]+/g, ' '),
+    [lesson?.content],
+  );
+  const keyboardModel = useMemo(() => buildKeyboardModel(lesson?.layout ?? 'ABNT2'), [lesson?.layout]);
+
+  // RN39 - quando o usuário demora além do tempo médio padrão de digitação na tecla
+  // aguardada, o teclado virtual pisca a tecla como dica. O timer reinicia a cada
+  // posição digitada e é suspenso durante composição de tecla morta.
+  useEffect(() => {
+    setHintKey(null);
+    if (session.phase !== 'typing' || showComposition) {
+      return;
+    }
+    const awaited = content[session.position];
+    if (awaited === undefined) {
+      return;
+    }
+    const timeoutId = window.setTimeout(() => {
+      const prevChar = session.position > 0 ? content[session.position - 1] ?? null : null;
+      setHintKey(resolveAwaitedKey(awaited, prevChar, keyboardModel));
+    }, KEY_HINT_TIMEOUT_MS);
+    return () => window.clearTimeout(timeoutId);
+  }, [session.phase, session.position, showComposition, content, keyboardModel]);
 
   function markPressed(code: string, key: string): void {
     const label = resolveKeyLabel(code, key, keyboardModel);
@@ -221,7 +245,7 @@ export default function TypingInterface({ session, onBack, onRepeatLesson, onAdv
         />
       </div>
 
-      <VirtualKeyboard layout={lesson?.layout ?? 'ABNT2'} pressedKeys={pressedKeys} />
+      <VirtualKeyboard layout={lesson?.layout ?? 'ABNT2'} pressedKeys={pressedKeys} hintKey={hintKey} />
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-slate-400">
@@ -343,11 +367,10 @@ function CompletedPanel({
     );
   }
 
+  // RN26 - o motor pedagógico já decide o avanço (reason 'advance'). A presença de
+  // erros finais não bloqueia o botão azul de avançar; a mensagem apenas orienta.
   const canAdvance =
-    verdict.status === 'ready' &&
-    verdict.reason === 'advance' &&
-    verdict.lesson !== null &&
-    m.finalUncorrectedErrors === 0;
+    verdict.status === 'ready' && verdict.reason === 'advance' && verdict.lesson !== null;
 
   return (
     <div className="flex flex-col items-center gap-6 py-12 text-center">
@@ -379,11 +402,13 @@ function CompletedPanel({
         </p>
       )}
 
-      {verdict.status === 'ready' && canAdvance && (
-        <p className="max-w-md text-sm text-slate-600">
-          Excelente! Você concluiu a lição sem erros finais e atingiu o critério de avanço.
-        </p>
-      )}
+      {verdict.status === 'ready' &&
+        verdict.reason === 'advance' &&
+        m.finalUncorrectedErrors === 0 && (
+          <p className="max-w-md text-sm text-slate-600">
+            Excelente! Você concluiu a lição sem erros finais e atingiu o critério de avanço.
+          </p>
+        )}
 
       {verdict.status === 'ready' &&
         (verdict.reason === 'repeat' || verdict.reason === 'vary') && (
@@ -393,7 +418,7 @@ function CompletedPanel({
           </p>
         )}
 
-      {verdict.status === 'ready' && verdict.reason === 'advance' && !canAdvance && (
+      {verdict.status === 'ready' && verdict.reason === 'advance' && m.finalUncorrectedErrors > 0 && (
         <p className="max-w-md text-sm text-slate-600">
           A lição avançou, mas ainda ficaram {String(m.finalUncorrectedErrors)} {m.finalUncorrectedErrors === 1 ? 'erro final' : 'erros finais'}. Recomendamos repeti-la
           para consolidar.

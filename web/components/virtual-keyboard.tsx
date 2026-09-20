@@ -16,6 +16,7 @@ const PRESSED_BG = '#F7F8F8';
 interface VirtualKeyboardProps {
   layout: string;
   pressedKeys: ReadonlySet<string>;
+  hintKey?: string | null;
 }
 
 function mix(hexA: string, hexB: string, t: number): string {
@@ -30,7 +31,7 @@ function mix(hexA: string, hexB: string, t: number): string {
   return `#${toHex(ra * t + rb * (1 - t))}${toHex(ga * t + gb * (1 - t))}${toHex(ba * t + bb * (1 - t))}`;
 }
 
-function keyStyle(key: { label: string; color: string; width: number }, pressed: boolean) {
+function keyStyle(key: { label: string; color: string; width: number }, pressed: boolean, hinted: boolean) {
   const flex = Math.round(key.width * 100);
   if (pressed) {
     return {
@@ -44,6 +45,17 @@ function keyStyle(key: { label: string; color: string; width: number }, pressed:
       transform: 'translateY(1px)',
     };
   }
+  if (hinted) {
+    return {
+      flexGrow: flex,
+      flexBasis: 0,
+      minWidth: 0,
+      backgroundColor: mix(key.color, BG_HEX, 0.45),
+      color: '#F7F8F8',
+      borderColor: key.color,
+      boxShadow: `0 0 0 2px ${key.color}`,
+    };
+  }
   return {
     flexGrow: flex,
     flexBasis: 0,
@@ -54,7 +66,7 @@ function keyStyle(key: { label: string; color: string; width: number }, pressed:
   };
 }
 
-export default function VirtualKeyboard({ layout, pressedKeys }: VirtualKeyboardProps): ReactNode {
+export default function VirtualKeyboard({ layout, pressedKeys, hintKey = null }: VirtualKeyboardProps): ReactNode {
   const model = buildKeyboardModel(layout);
   const leftFingers: FingerZone[] = ['L_PINKY', 'L_RING', 'L_MIDDLE', 'L_INDEX'];
   const rightFingers: FingerZone[] = ['R_INDEX', 'R_MIDDLE', 'R_RING', 'R_PINKY'];
@@ -69,8 +81,9 @@ export default function VirtualKeyboard({ layout, pressedKeys }: VirtualKeyboard
               <div
                 key={`${rowIndex}-${colIndex}-${key.label}`}
                 data-key={key.label}
-                className="relative flex h-10 items-center justify-center overflow-hidden rounded-md border text-sm font-medium transition-none"
-                style={keyStyle(key, pressedKeys.has(key.label))}
+                data-hint={hintKey === key.label ? 'true' : 'false'}
+                className={`relative flex h-10 items-center justify-center overflow-hidden rounded-md border text-sm font-medium transition-none ${hintKey === key.label ? 'ott-key-hint' : ''}`}
+                style={keyStyle(key, pressedKeys.has(key.label), hintKey === key.label)}
               >
                 {key.caption?.shift !== undefined && (
                   <span className="absolute left-1 top-0.5 text-[10px] leading-none text-slate-300/70">
@@ -104,9 +117,10 @@ export default function VirtualKeyboard({ layout, pressedKeys }: VirtualKeyboard
               <div
                 key={`n-${rowIndex}-${colIndex}-${key.label}`}
                 data-key={key.label}
-                className="flex h-10 items-center justify-center rounded-md border text-sm font-medium transition-none"
+                data-hint={hintKey === key.label ? 'true' : 'false'}
+                className={`flex h-10 items-center justify-center rounded-md border text-sm font-medium transition-none ${hintKey === key.label ? 'ott-key-hint' : ''}`}
                 style={{
-                  ...keyStyle(key, pressedKeys.has(key.label)),
+                  ...keyStyle(key, pressedKeys.has(key.label), hintKey === key.label),
                   gridColumn: `${colIndex + 1} / span ${key.spanX ?? 1}`,
                   gridRow: `${rowIndex + 1} / span ${key.spanY ?? 1}`,
                 }}
