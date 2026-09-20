@@ -1,55 +1,73 @@
-import os from 'os';
-import crypto from 'crypto';
-import autocannon from 'autocannon';
-import type { DataSource } from 'typeorm';
-import { SessionId } from '../src/domain/value-objects/SessionId.js';
-import { Layout } from '../src/domain/value-objects/Layout.js';
-import { Lesson } from '../src/domain/entities/Lesson.js';
-import { SessionMetrics } from '../src/domain/entities/SessionMetrics.js';
-import type { KeystrokeEventProps } from '../src/domain/entities/KeystrokeEvent.js';
-import { TypeOrmLessonRepository } from '../src/infrastructure/repositories/TypeOrmLessonRepository.js';
-import { TypeOrmUserRepository } from '../src/infrastructure/repositories/TypeOrmUserRepository.js';
-import { TypeOrmUserProfileRepository } from '../src/infrastructure/repositories/TypeOrmUserProfileRepository.js';
-import { TypeOrmTypingSessionRepository } from '../src/infrastructure/repositories/TypeOrmTypingSessionRepository.js';
-import { TypeOrmKeyPerformanceRepository } from '../src/infrastructure/repositories/TypeOrmKeyPerformanceRepository.js';
-import { TypeOrmProgressRepository } from '../src/infrastructure/repositories/TypeOrmProgressRepository.js';
-import { TypeOrmProgressCardRepository } from '../src/infrastructure/repositories/TypeOrmProgressCardRepository.js';
-import { TypeOrmPracticePacingRepository } from '../src/infrastructure/repositories/TypeOrmPracticePacingRepository.js';
-import { InMemoryRateLimiter } from '../src/infrastructure/rateLimit/InMemoryRateLimiter.js';
-import { createRateLimitMiddleware } from '../src/presentation/middlewares/rateLimitMiddleware.js';
-import { rateLimitParams } from '../src/infrastructure/auth/rateLimitParams.js';
-import { InMemoryNGramRepository } from '../src/infrastructure/repositories/InMemoryNGramRepository.js';
-import { BcryptPasswordHasher } from '../src/infrastructure/auth/BcryptPasswordHasher.js';
-import { AuthPasswordValidator } from '../src/infrastructure/auth/AuthPasswordValidator.js';
-import { JwtTokenService } from '../src/infrastructure/auth/JwtTokenService.js';
-import { createAuthMiddleware } from '../src/presentation/middlewares/authMiddleware.js';
-import { createApp } from '../src/presentation/app.js';
-import { RegisterUser } from '../src/application/use-cases/RegisterUser.js';
-import { Login } from '../src/application/use-cases/Login.js';
-import { RefreshToken } from '../src/application/use-cases/RefreshToken.js';
-import { GetUser } from '../src/application/use-cases/GetUser.js';
-import { UpdateUserLayout } from '../src/application/use-cases/UpdateUserLayout.js';
-import { ListLessons } from '../src/application/use-cases/ListLessons.js';
-import { GetLesson } from '../src/application/use-cases/GetLesson.js';
-import { StartTypingSession } from '../src/application/use-cases/StartTypingSession.js';
-import { PauseTypingSession } from '../src/application/use-cases/PauseTypingSession.js';
-import { ResumeTypingSession } from '../src/application/use-cases/ResumeTypingSession.js';
-import { AbandonTypingSession } from '../src/application/use-cases/AbandonTypingSession.js';
-import { SubmitTypingSession } from '../src/application/use-cases/SubmitTypingSession.js';
-import { GetReinforcementLesson } from '../src/application/use-cases/GetReinforcementLesson.js';
-import { GetUserProgress } from '../src/application/use-cases/GetUserProgress.js';
-import { GetUserKeyPerformance } from '../src/application/use-cases/GetUserKeyPerformance.js';
-import { GetNextPedagogicalLesson } from '../src/application/use-cases/GetNextPedagogicalLesson.js';
-import { SubmitProgressCard } from '../src/application/use-cases/SubmitProgressCard.js';
-import { GetPracticeStatus } from '../src/application/use-cases/GetPracticeStatus.js';
-import { CheckErgonomicSafety } from '../src/application/use-cases/CheckErgonomicSafety.js';
-import { TypingSessionEntity, type TypingSessionRow } from '../src/infrastructure/database/entities/index.js';
+import os from "os";
+import crypto from "crypto";
+import autocannon from "autocannon";
+import type { DataSource } from "typeorm";
+import { SessionId } from "../src/domain/value-objects/SessionId.js";
+import { Layout } from "../src/domain/value-objects/Layout.js";
+import { Lesson } from "../src/domain/entities/Lesson.js";
+import { SessionMetrics } from "../src/domain/entities/SessionMetrics.js";
+import type { KeystrokeEventProps } from "../src/domain/entities/KeystrokeEvent.js";
+import { TypeOrmLessonRepository } from "../src/infrastructure/repositories/TypeOrmLessonRepository.js";
+import { TypeOrmUserRepository } from "../src/infrastructure/repositories/TypeOrmUserRepository.js";
+import { TypeOrmUserProfileRepository } from "../src/infrastructure/repositories/TypeOrmUserProfileRepository.js";
+import { TypeOrmTypingSessionRepository } from "../src/infrastructure/repositories/TypeOrmTypingSessionRepository.js";
+import { TypeOrmKeyPerformanceRepository } from "../src/infrastructure/repositories/TypeOrmKeyPerformanceRepository.js";
+import { TypeOrmProgressRepository } from "../src/infrastructure/repositories/TypeOrmProgressRepository.js";
+import { TypeOrmProgressCardRepository } from "../src/infrastructure/repositories/TypeOrmProgressCardRepository.js";
+import { TypeOrmPracticePacingRepository } from "../src/infrastructure/repositories/TypeOrmPracticePacingRepository.js";
+import { TypeOrmDailyMetricsAggregateRepository } from "../src/infrastructure/repositories/TypeOrmDailyMetricsAggregateRepository.js";
+import { TypeOrmKeyMasteryTransitionRepository } from "../src/infrastructure/repositories/TypeOrmKeyMasteryTransitionRepository.js";
+import { InMemoryRateLimiter } from "../src/infrastructure/rateLimit/InMemoryRateLimiter.js";
+import { createRateLimitMiddleware } from "../src/presentation/middlewares/rateLimitMiddleware.js";
+import { rateLimitParams } from "../src/infrastructure/auth/rateLimitParams.js";
+import { InMemoryNGramRepository } from "../src/infrastructure/repositories/InMemoryNGramRepository.js";
+import { BcryptPasswordHasher } from "../src/infrastructure/auth/BcryptPasswordHasher.js";
+import { AuthPasswordValidator } from "../src/infrastructure/auth/AuthPasswordValidator.js";
+import { JwtTokenService } from "../src/infrastructure/auth/JwtTokenService.js";
+import { createAuthMiddleware } from "../src/presentation/middlewares/authMiddleware.js";
+import { createApp } from "../src/presentation/app.js";
+import { RegisterUser } from "../src/application/use-cases/RegisterUser.js";
+import { Login } from "../src/application/use-cases/Login.js";
+import { RefreshToken } from "../src/application/use-cases/RefreshToken.js";
+import { GetUser } from "../src/application/use-cases/GetUser.js";
+import { UpdateUserLayout } from "../src/application/use-cases/UpdateUserLayout.js";
+import { ListLessons } from "../src/application/use-cases/ListLessons.js";
+import { GetLesson } from "../src/application/use-cases/GetLesson.js";
+import { StartTypingSession } from "../src/application/use-cases/StartTypingSession.js";
+import { PauseTypingSession } from "../src/application/use-cases/PauseTypingSession.js";
+import { ResumeTypingSession } from "../src/application/use-cases/ResumeTypingSession.js";
+import { AbandonTypingSession } from "../src/application/use-cases/AbandonTypingSession.js";
+import { SubmitTypingSession } from "../src/application/use-cases/SubmitTypingSession.js";
+import { GetReinforcementLesson } from "../src/application/use-cases/GetReinforcementLesson.js";
+import { GetUserProgress } from "../src/application/use-cases/GetUserProgress.js";
+import { GetUserKeyPerformance } from "../src/application/use-cases/GetUserKeyPerformance.js";
+import { GetNextPedagogicalLesson } from "../src/application/use-cases/GetNextPedagogicalLesson.js";
+import { SubmitProgressCard } from "../src/application/use-cases/SubmitProgressCard.js";
+import { GetPracticeStatus } from "../src/application/use-cases/GetPracticeStatus.js";
+import { CheckErgonomicSafety } from "../src/application/use-cases/CheckErgonomicSafety.js";
+import { GetDashboardHabits } from "../src/application/use-cases/GetDashboardHabits.js";
+import { GetDashboardMastery } from "../src/application/use-cases/GetDashboardMastery.js";
+import { GetDashboardProximity } from "../src/application/use-cases/GetDashboardProximity.js";
+import { GetLessonPerformance } from "../src/application/use-cases/GetLessonPerformance.js";
+import {
+  TypingSessionEntity,
+  type TypingSessionRow,
+} from "../src/infrastructure/database/entities/index.js";
 
-export const BENCH_LESSON_ID = '10000000-0000-4000-8000-000000000001';
+export const BENCH_LESSON_ID = "10000000-0000-4000-8000-000000000001";
 
-const LETTERS: Array<{ logicalKey: string; physicalKey: string }> = ['a', 's', 'd', 'f', 'j', 'k', 'l'].map(
-  (logicalKey) => ({ logicalKey, physicalKey: `Key${logicalKey.toUpperCase()}` })
-);
+const LETTERS: Array<{ logicalKey: string; physicalKey: string }> = [
+  "a",
+  "s",
+  "d",
+  "f",
+  "j",
+  "k",
+  "l",
+].map((logicalKey) => ({
+  logicalKey,
+  physicalKey: `Key${logicalKey.toUpperCase()}`,
+}));
 
 export function buildKeystrokes(count: number): KeystrokeEventProps[] {
   const keystrokes: KeystrokeEventProps[] = [];
@@ -63,7 +81,7 @@ export function buildKeystrokes(count: number): KeystrokeEventProps[] {
       typedKey: entry.logicalKey,
       physicalKey: entry.physicalKey,
       logicalKey: entry.logicalKey,
-      eventType: 'CORRECT',
+      eventType: "CORRECT",
       timestampMs: 100 + i * 12,
       latencyMs: i % 2 === 0 ? 90 : 120,
       composedCharacter: null,
@@ -74,24 +92,30 @@ export function buildKeystrokes(count: number): KeystrokeEventProps[] {
 
 export function printReferenceEnvironment(): void {
   const cpus = os.cpus();
-  const cpuModel = (cpus[0]?.model ?? 'desconhecido').trim();
-  console.info('Ambiente de referência (RNF06):');
+  const cpuModel = (cpus[0]?.model ?? "desconhecido").trim();
+  console.info("Ambiente de referência (RNF06):");
   console.info(`  OS: ${os.platform()} ${os.release()}`);
   console.info(`  CPU: ${cpuModel} (${String(cpus.length)} núcleos lógicos)`);
   console.info(`  RAM: ${(os.totalmem() / 1024 ** 3).toFixed(1)} GiB`);
   console.info(`  Node: ${process.version}`);
-  console.info('');
+  console.info("");
 }
 
-export function postJson(url: string, headers: Record<string, string>, body: unknown): Promise<Response> {
+export function postJson(
+  url: string,
+  headers: Record<string, string>,
+  body: unknown,
+): Promise<Response> {
   return fetch(url, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json', ...headers },
+    method: "POST",
+    headers: { "content-type": "application/json", ...headers },
     body: JSON.stringify(body),
   });
 }
 
-export async function jsonResponse(res: Response): Promise<{ status: number; body: unknown }> {
+export async function jsonResponse(
+  res: Response,
+): Promise<{ status: number; body: unknown }> {
   const body = (await res.json()) as unknown;
   return { status: res.status, body };
 }
@@ -101,10 +125,18 @@ export function buildApp(dataSource: DataSource) {
   const userProfileRepository = new TypeOrmUserProfileRepository(dataSource);
   const lessonRepository = new TypeOrmLessonRepository(dataSource);
   const sessionRepository = new TypeOrmTypingSessionRepository(dataSource);
-  const keyPerformanceRepository = new TypeOrmKeyPerformanceRepository(dataSource);
+  const keyPerformanceRepository = new TypeOrmKeyPerformanceRepository(
+    dataSource,
+  );
   const progressRepository = new TypeOrmProgressRepository(dataSource);
   const progressCardRepository = new TypeOrmProgressCardRepository(dataSource);
   const pacingRepository = new TypeOrmPracticePacingRepository(dataSource);
+  const dailyAggregateRepository = new TypeOrmDailyMetricsAggregateRepository(
+    dataSource,
+  );
+  const masteryTransitionRepository = new TypeOrmKeyMasteryTransitionRepository(
+    dataSource,
+  );
   const passwordHasher = new BcryptPasswordHasher();
   const passwordValidator = new AuthPasswordValidator();
   const tokenService = new JwtTokenService();
@@ -112,12 +144,12 @@ export function buildApp(dataSource: DataSource) {
 
   const rateLimiter = new InMemoryRateLimiter();
   const loginRateLimiter = createRateLimitMiddleware(rateLimiter, {
-    keyPrefix: 'login',
+    keyPrefix: "login",
     maxAttempts: rateLimitParams.LOGIN_MAX_ATTEMPTS,
     windowMs: rateLimitParams.LOGIN_WINDOW_MS,
   });
   const refreshRateLimiter = createRateLimitMiddleware(rateLimiter, {
-    keyPrefix: 'refresh',
+    keyPrefix: "refresh",
     maxAttempts: rateLimitParams.REFRESH_MAX_ATTEMPTS,
     windowMs: rateLimitParams.REFRESH_WINDOW_MS,
   });
@@ -126,14 +158,23 @@ export function buildApp(dataSource: DataSource) {
     authMiddleware: createAuthMiddleware(tokenService),
     loginRateLimiter,
     refreshRateLimiter,
-    registerUser: new RegisterUser(userRepository, passwordHasher, passwordValidator),
+    registerUser: new RegisterUser(
+      userRepository,
+      passwordHasher,
+      passwordValidator,
+    ),
     login: new Login(userRepository, passwordHasher, tokenService),
     refreshToken: new RefreshToken(tokenService),
     getUser: new GetUser(userRepository, userProfileRepository),
     updateUserLayout: new UpdateUserLayout(userProfileRepository),
     listLessons: new ListLessons(lessonRepository, userProfileRepository),
     getLesson: new GetLesson(lessonRepository),
-    startSession: new StartTypingSession(sessionRepository, lessonRepository, userProfileRepository, pacingRepository),
+    startSession: new StartTypingSession(
+      sessionRepository,
+      lessonRepository,
+      userProfileRepository,
+      pacingRepository,
+    ),
     pauseSession: new PauseTypingSession(sessionRepository),
     resumeSession: new ResumeTypingSession(sessionRepository),
     abandonSession: new AbandonTypingSession(sessionRepository),
@@ -142,15 +183,45 @@ export function buildApp(dataSource: DataSource) {
       keyPerformanceRepository,
       progressRepository,
       lessonRepository,
-      pacingRepository
+      pacingRepository,
+      dailyAggregateRepository,
+      userProfileRepository,
+      masteryTransitionRepository,
     ),
-    getReinforcementLesson: new GetReinforcementLesson(userProfileRepository, keyPerformanceRepository, nGramRepository),
+    getReinforcementLesson: new GetReinforcementLesson(
+      userProfileRepository,
+      keyPerformanceRepository,
+      nGramRepository,
+    ),
     getUserProgress: new GetUserProgress(progressRepository, lessonRepository),
-    getUserKeyPerformance: new GetUserKeyPerformance(userProfileRepository, keyPerformanceRepository),
-    getNextPedagogicalLesson: new GetNextPedagogicalLesson(progressCardRepository, lessonRepository),
-    submitProgressCard: new SubmitProgressCard(progressCardRepository),
+    getUserKeyPerformance: new GetUserKeyPerformance(
+      userProfileRepository,
+      keyPerformanceRepository,
+    ),
+    getNextPedagogicalLesson: new GetNextPedagogicalLesson(
+      progressCardRepository,
+      lessonRepository,
+    ),
+    submitProgressCard: new SubmitProgressCard(
+      progressCardRepository,
+      lessonRepository,
+    ),
     checkErgonomicSafety: new CheckErgonomicSafety(),
     getPracticeStatus: new GetPracticeStatus(pacingRepository),
+    getLessonPerformance: new GetLessonPerformance(sessionRepository),
+    getDashboardHabits: new GetDashboardHabits(
+      userProfileRepository,
+      dailyAggregateRepository,
+    ),
+    getDashboardMastery: new GetDashboardMastery(
+      userProfileRepository,
+      keyPerformanceRepository,
+      masteryTransitionRepository,
+    ),
+    getDashboardProximity: new GetDashboardProximity(
+      userProfileRepository,
+      keyPerformanceRepository,
+    ),
   });
 
   return app;
@@ -163,18 +234,22 @@ export async function seedLesson(dataSource: DataSource): Promise<string> {
     Lesson.create({
       id: lessonId,
       level: 1,
-      title: 'Lições benchmark',
-      content: 'asdf jkl;',
-      targetKeys: ['a', 's', 'd', 'f', 'j', 'k', 'l'],
-      difficulty: 'GUIDED',
-      type: 'INTRODUCTION',
-      layout: Layout.create('ABNT2'),
-    })
+      title: "Lições benchmark",
+      content: "asdf jkl;",
+      targetKeys: ["a", "s", "d", "f", "j", "k", "l"],
+      difficulty: "GUIDED",
+      type: "INTRODUCTION",
+      layout: Layout.create("ABNT2"),
+    }),
   );
   return lessonId.value;
 }
 
-export async function seedCompletedSessions(dataSource: DataSource, userId: string, lessonId: string): Promise<void> {
+export async function seedCompletedSessions(
+  dataSource: DataSource,
+  userId: string,
+  lessonId: string,
+): Promise<void> {
   const repo = dataSource.getRepository(TypingSessionEntity);
   const keystrokesPayload = buildKeystrokes(60);
   const now = Date.now();
@@ -195,10 +270,12 @@ export async function seedCompletedSessions(dataSource: DataSource, userId: stri
       id: crypto.randomUUID(),
       userId,
       lessonId,
-      layout: 'ABNT2',
-      state: 'COMPLETED',
+      layout: "ABNT2",
+      state: "COMPLETED",
       startedAt: new Date(now - (index + 1) * 3_600_000).toISOString(),
-      completedAt: new Date(now - (index + 1) * 3_600_000 + 120_000).toISOString(),
+      completedAt: new Date(
+        now - (index + 1) * 3_600_000 + 120_000,
+      ).toISOString(),
       activeDurationMs: 120_000,
       metrics: JSON.stringify(seededMetrics.toJSON()),
       keystrokes: JSON.stringify(keystrokesPayload),
@@ -226,29 +303,50 @@ export async function runAutocannon(
   url: string,
   headers: Record<string, string>,
   body: string,
-  options: { connections?: number; duration?: number } = {}
+  options: {
+    connections?: number;
+    duration?: number;
+    method?: "GET" | "POST";
+  } = {},
 ): Promise<AutocannonReport> {
   const instance = autocannon({
     url,
-    method: 'POST',
-    headers: { 'content-type': 'application/json', ...headers },
+    method: options.method ?? "POST",
+    headers: { "content-type": "application/json", ...headers },
     body,
     connections: options.connections ?? 10,
     duration: options.duration ?? 10,
   });
   const responseTimes: number[] = [];
-  instance.on('response', (_client: unknown, _status: number, _bytes: number, responseTime: number) => {
-    responseTimes.push(responseTime);
-  });
+  instance.on(
+    "response",
+    (
+      _client: unknown,
+      _status: number,
+      _bytes: number,
+      responseTime: number,
+    ) => {
+      responseTimes.push(responseTime);
+    },
+  );
   const result = (await instance) as unknown as {
     requests: { average: number };
     throughput: { average: number };
     non2xx: number;
-    latency: { p50: number; p90: number; p97_5: number; p99: number; average: number };
+    latency: {
+      p50: number;
+      p90: number;
+      p97_5: number;
+      p99: number;
+      average: number;
+    };
   };
 
   const sortedLatencies = [...responseTimes].sort((a, b) => a - b);
-  const p95Index = Math.min(sortedLatencies.length - 1, Math.floor(sortedLatencies.length * 0.95));
+  const p95Index = Math.min(
+    sortedLatencies.length - 1,
+    Math.floor(sortedLatencies.length * 0.95),
+  );
 
   return {
     totalRequests: sortedLatencies.length,
@@ -264,12 +362,19 @@ export async function runAutocannon(
   };
 }
 
-export function printReport(title: string, report: AutocannonReport, p95BudgetMs = 150): boolean {
+export function printReport(
+  title: string,
+  report: AutocannonReport,
+  p95BudgetMs = 150,
+  label = "RNF06",
+): boolean {
   const fulfilled = report.p95Ms <= p95BudgetMs;
-  if (title !== '') {
+  if (title !== "") {
     console.info(`${title}:`);
   }
-  console.info(`  requisições: ${String(report.totalRequests)} (non-2xx: ${String(report.non2xx)})`);
+  console.info(
+    `  requisições: ${String(report.totalRequests)} (non-2xx: ${String(report.non2xx)})`,
+  );
   console.info(`  requisições/s: ${report.requestsPerSecond.toFixed(0)}`);
   console.info(`  throughput: ${report.throughputKibS.toFixed(1)} KiB/s`);
   console.info(`  latência média: ${report.averageMs.toFixed(1)}ms`);
@@ -278,6 +383,8 @@ export function printReport(title: string, report: AutocannonReport, p95BudgetMs
   console.info(`  latência p95 (calculado): ${report.p95Ms.toFixed(1)}ms`);
   console.info(`  latência p97.5: ${report.p97_5Ms.toFixed(1)}ms`);
   console.info(`  latência p99: ${report.p99Ms.toFixed(1)}ms`);
-  console.info(`RNF06 (p95 ≤ ${p95BudgetMs}ms): ${fulfilled ? 'ATENDIDO' : 'NÃO ATENDIDO'}`);
+  console.info(
+    `${label} (p95 ≤ ${p95BudgetMs}ms): ${fulfilled ? "ATENDIDO" : "NÃO ATENDIDO"}`,
+  );
   return fulfilled;
 }
