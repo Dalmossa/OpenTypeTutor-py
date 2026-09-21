@@ -10,7 +10,7 @@ afterEach(() => {
 
 // jsdom não implementa matchMedia (necessário pelo Recharts ResponsiveContainer).
 if (typeof window !== "undefined" && typeof window.matchMedia !== "function") {
-  window.matchMedia = ((query: string) => ({
+  window.matchMedia = (query: string) => ({
     matches: false,
     media: query,
     addListener: () => undefined,
@@ -19,7 +19,7 @@ if (typeof window !== "undefined" && typeof window.matchMedia !== "function") {
     removeEventListener: () => undefined,
     onchange: null,
     dispatchEvent: () => false,
-  })) as unknown as typeof window.matchMedia;
+  });
 }
 
 // jsdom não implementa ResizeObserver (Recharts ResponsiveContainer).

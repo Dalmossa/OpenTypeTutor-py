@@ -5,7 +5,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type {
   EventType,
   KeystrokeEventDTO,
-  SessionMetricsDTO,
   SessionState,
   SubmitSessionResponseDTO,
 } from "@/models/session";
@@ -101,7 +100,6 @@ export function useTypingSession(): UseTypingSessionResult {
   const positionRef = useRef(0);
   const errorsRef = useRef(new Set<number>());
   const keystrokesRef = useRef<KeystrokeEventDTO[]>([]);
-  const latencyStartRef = useRef<number | null>(null);
   const lastLatencyRef = useRef<number | null>(null);
   const activeStartRef = useRef<number | null>(null);
   const totalPausedRef = useRef(0);
@@ -443,7 +441,7 @@ export function useTypingSession(): UseTypingSessionResult {
         ),
       );
     },
-    [makeEvent, pushKeystroke, targetRef],
+    [makeEvent, patchSession, pushKeystroke, targetRef],
   );
 
   const computeInsecureKeys = useCallback((): string[] => {

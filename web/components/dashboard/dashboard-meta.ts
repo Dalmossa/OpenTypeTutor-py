@@ -70,7 +70,7 @@ function avg(arr: number[]): number {
   return arr.reduce((a, b) => a + b, 0) / arr.length;
 }
 
-function computeComparison<T extends number>(
+function computeComparison(
   current: number,
   previous: number | null,
 ): PeriodComparison<number> {

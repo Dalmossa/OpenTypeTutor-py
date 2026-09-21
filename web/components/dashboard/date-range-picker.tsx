@@ -1,15 +1,15 @@
-'use client';
+"use client";
 
-import type { ReactNode } from 'react';
-import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
+import type { ReactNode } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 
-import { CustomDateRange, PresetWindow, TrendWindow } from '@/models/dashboard';
+import { CustomDateRange, PresetWindow, TrendWindow } from "@/models/dashboard";
 
 const PRESETS: readonly { label: string; value: TrendWindow }[] = [
-  { label: '7 dias', value: 7 },
-  { label: '30 dias', value: 30 },
-  { label: '90 dias', value: 90 },
-  { label: 'Personalizado', value: 'custom' },
+  { label: "7 dias", value: 7 },
+  { label: "30 dias", value: 30 },
+  { label: "90 dias", value: 90 },
+  { label: "Personalizado", value: "custom" },
 ];
 
 function addDays(date: Date, days: number): Date {
@@ -19,12 +19,12 @@ function addDays(date: Date, days: number): Date {
 }
 
 function formatDateInput(date: Date): string {
-  return date.toISOString().split('T')[0];
+  return date.toISOString().split("T")[0];
 }
 
 function parseDateInput(value: string): Date | null {
   if (!value) return null;
-  const [year, month, day] = value.split('-').map(Number);
+  const [year, month, day] = value.split("-").map(Number);
   if (!year || !month || !day) return null;
   return new Date(year, month - 1, day);
 }
@@ -35,45 +35,59 @@ export interface DateRangePickerProps {
   maxDate?: Date;
 }
 
-export function DateRangePicker({ value, onChange, maxDate = new Date() }: DateRangePickerProps): ReactNode {
+export function DateRangePicker({
+  value,
+  onChange,
+  maxDate = new Date(),
+}: DateRangePickerProps): ReactNode {
   const [isCustomOpen, setIsCustomOpen] = useState(false);
-  const [customStart, setCustomStart] = useState('');
-  const [customEnd, setCustomEnd] = useState('');
+  const [customStart, setCustomStart] = useState("");
+  const [customEnd, setCustomEnd] = useState("");
   const popoverRef = useRef<HTMLDivElement>(null);
 
   // Sincroniza inputs custom quando value muda externamente
   useEffect(() => {
-    if (typeof value === 'object' && 'start' in value) {
+    if (typeof value === "object" && "start" in value) {
       setCustomStart(value.start);
       setCustomEnd(value.end);
     }
   }, [value]);
 
-  const handlePresetClick = useCallback((presetValue: TrendWindow | 'custom') => {
-    if (presetValue === 'custom') {
-      setIsCustomOpen(true);
-      // Pré-preenche com últimos 30 dias se vazio
-      if (!customStart) {
-        const end = maxDate;
-        const start = addDays(maxDate, -29);
-        setCustomStart(formatDateInput(start));
-        setCustomEnd(formatDateInput(end));
+  const handlePresetClick = useCallback(
+    (presetValue: TrendWindow | "custom") => {
+      if (presetValue === "custom") {
+        setIsCustomOpen(true);
+        // Pré-preenche com últimos 30 dias se vazio
+        if (!customStart) {
+          const end = maxDate;
+          const start = addDays(maxDate, -29);
+          setCustomStart(formatDateInput(start));
+          setCustomEnd(formatDateInput(end));
+        }
+      } else {
+        onChange(presetValue);
+        setIsCustomOpen(false);
       }
-    } else {
-      onChange(presetValue);
-      setIsCustomOpen(false);
-    }
-  }, [onChange, customStart, maxDate]);
+    },
+    [onChange, customStart, maxDate],
+  );
 
-  const handleCustomSubmit = useCallback((e: React.FormEvent) => {
-    e.preventDefault();
-    const start = parseDateInput(customStart);
-    const end = parseDateInput(customEnd);
-    if (start && end && start <= end && end <= maxDate) {
-      onChange({ kind: 'custom', start: formatDateInput(start), end: formatDateInput(end) });
-      setIsCustomOpen(false);
-    }
-  }, [customStart, customEnd, onChange, maxDate]);
+  const handleCustomSubmit = useCallback(
+    (e: React.FormEvent) => {
+      e.preventDefault();
+      const start = parseDateInput(customStart);
+      const end = parseDateInput(customEnd);
+      if (start && end && start <= end && end <= maxDate) {
+        onChange({
+          kind: "custom",
+          start: formatDateInput(start),
+          end: formatDateInput(end),
+        });
+        setIsCustomOpen(false);
+      }
+    },
+    [customStart, customEnd, onChange, maxDate],
+  );
 
   const handleClickOutside = useCallback((e: MouseEvent) => {
     if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) {
@@ -82,13 +96,13 @@ export function DateRangePicker({ value, onChange, maxDate = new Date() }: DateR
   }, []);
 
   useEffect(() => {
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [handleClickOutside]);
 
   const isPresetActive = (presetValue: TrendWindow) => {
-    if (presetValue === 'custom') {
-      return typeof value === 'object' && value.kind === 'custom';
+    if (presetValue === "custom") {
+      return typeof value === "object" && value.kind === "custom";
     }
     return value === presetValue;
   };
@@ -104,8 +118,8 @@ export function DateRangePicker({ value, onChange, maxDate = new Date() }: DateR
             aria-pressed={isPresetActive(preset.value)}
             className={`rounded px-3 py-1 transition-colors ${
               isPresetActive(preset.value)
-                ? 'bg-primary text-white'
-                : 'text-ink-muted hover:bg-surface-2'
+                ? "bg-primary text-white"
+                : "text-ink-muted hover:bg-surface-2"
             }`}
           >
             {preset.label}
@@ -121,7 +135,10 @@ export function DateRangePicker({ value, onChange, maxDate = new Date() }: DateR
         >
           <form onSubmit={handleCustomSubmit} className="flex flex-col gap-3">
             <div>
-              <label htmlFor="custom-start" className="block text-xs font-medium text-ink-muted mb-1">
+              <label
+                htmlFor="custom-start"
+                className="block text-xs font-medium text-ink-muted mb-1"
+              >
                 Início
               </label>
               <input
@@ -134,7 +151,10 @@ export function DateRangePicker({ value, onChange, maxDate = new Date() }: DateR
               />
             </div>
             <div>
-              <label htmlFor="custom-end" className="block text-xs font-medium text-ink-muted mb-1">
+              <label
+                htmlFor="custom-end"
+                className="block text-xs font-medium text-ink-muted mb-1"
+              >
                 Fim
               </label>
               <input

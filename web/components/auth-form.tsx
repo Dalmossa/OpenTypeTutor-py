@@ -1,35 +1,48 @@
-'use client';
+"use client";
 
-import { useState, type FormEvent, type ReactNode } from 'react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
+import { useState, type FormEvent, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
 
-import { loginAction, registerAction, type AuthActionResult } from '@/app/actions/auth';
+import {
+  loginAction,
+  registerAction,
+  type AuthActionResult,
+} from "@/app/actions/auth";
 
-type Mode = 'login' | 'register';
+type Mode = "login" | "register";
+
+// FormData.get retorna FormDataEntryValue (string | File); só textos são aceitos aqui,
+// o que evita a stringificação padrão do Object (no-base-to-string).
+function readField(data: FormData, key: string): string {
+  const value = data.get(key);
+  return typeof value === "string" ? value : "";
+}
 
 export function AuthForm({ mode }: { mode: Mode }): ReactNode {
   const router = useRouter();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
+  const handleSubmit = async (
+    event: FormEvent<HTMLFormElement>,
+  ): Promise<void> => {
     event.preventDefault();
     setPending(true);
     setError(null);
 
     const formData = new FormData(event.currentTarget);
-    const email = String(formData.get('email') ?? '');
-    const password = String(formData.get('password') ?? '');
-    const name = String(formData.get('name') ?? '');
+    const email = readField(formData, "email");
+    const password = readField(formData, "password");
+    const name = readField(formData, "name");
 
     const result: AuthActionResult =
-      mode === 'login'
+      mode === "login"
         ? await loginAction({ email, password })
         : await registerAction({ name, email, password });
 
     if (result.ok) {
-      router.replace('/app');
+      router.replace("/app");
       router.refresh();
       return;
     }
@@ -38,8 +51,11 @@ export function AuthForm({ mode }: { mode: Mode }): ReactNode {
   };
 
   return (
-    <form onSubmit={(e) => void handleSubmit(e)} className="w-full max-w-sm space-y-4">
-      {mode === 'register' && (
+    <form
+      onSubmit={(e) => void handleSubmit(e)}
+      className="w-full max-w-sm space-y-4"
+    >
+      {mode === "register" && (
         <label className="block">
           <span className="text-sm font-medium text-ink-muted">Nome</span>
           <input
@@ -78,17 +94,23 @@ export function AuthForm({ mode }: { mode: Mode }): ReactNode {
         disabled={pending}
         className="w-full rounded-md bg-primary px-4 py-2 font-medium text-white hover:bg-primary-hover disabled:opacity-60"
       >
-        {pending ? 'Aguarde…' : mode === 'login' ? 'Entrar' : 'Criar conta'}
+        {pending ? "Aguarde…" : mode === "login" ? "Entrar" : "Criar conta"}
       </button>
 
       <p className="text-center text-sm text-ink-muted">
-        {mode === 'login' ? (
+        {mode === "login" ? (
           <>
-            Não tem conta? <Link href="/register" className="text-primary underline">Cadastre-se</Link>
+            Não tem conta?{" "}
+            <Link href="/register" className="text-primary underline">
+              Cadastre-se
+            </Link>
           </>
         ) : (
           <>
-            Já tem conta? <Link href="/login" className="text-primary underline">Entrar</Link>
+            Já tem conta?{" "}
+            <Link href="/login" className="text-primary underline">
+              Entrar
+            </Link>
           </>
         )}
       </p>

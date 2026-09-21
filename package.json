@@ -25,7 +25,7 @@
     "lint:staged": "lint-staged"
   },
   "lint-staged": {
-    "*.ts": [
+    "*.{ts,tsx}": [
       "eslint --fix",
       "prettier --write"
     ],

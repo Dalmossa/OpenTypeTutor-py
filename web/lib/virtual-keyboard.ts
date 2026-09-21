@@ -459,7 +459,7 @@ export function buildKeyboardModel(layoutName: string): KeyboardModel {
         isModifier: MODIFIER_KEYS.has(label),
         spanX: span?.x,
         spanY: span?.y,
-      } as KeyCap;
+      };
     }),
   );
   for (const row of numpad) {

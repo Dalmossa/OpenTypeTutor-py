@@ -1,13 +1,26 @@
-'use client';
+"use client";
 
-import type { ReactNode } from 'react';
-import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import type { ReactNode } from "react";
+import {
+  CartesianGrid,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 
-import type { DashboardTrendPoint } from '@/models/dashboard';
-import { useTheme } from '@/components/theme-provider';
-import { formatDateKey, formatMs, formatPercent, formatWpm } from './dashboard-meta';
+import type { DashboardTrendPoint } from "@/models/dashboard";
+import { useTheme } from "@/components/theme-provider";
+import {
+  formatDateKey,
+  formatMs,
+  formatPercent,
+  formatWpm,
+} from "./dashboard-meta";
 
-type TrendMetric = 'netWpm' | 'accuracy' | 'averageLatencyMs';
+type TrendMetric = "netWpm" | "accuracy" | "averageLatencyMs";
 
 interface TrendChartProps {
   title: string;
@@ -18,16 +31,16 @@ interface TrendChartProps {
   comparisonColor?: string;
 }
 
-const GRID_DARK = '#23252a';
-const GRID_LIGHT = '#d9dce0';
-const AXIS_DARK = '#8a8f98';
-const AXIS_LIGHT = '#6b7178';
+const GRID_DARK = "#23252a";
+const GRID_LIGHT = "#d9dce0";
+const AXIS_DARK = "#8a8f98";
+const AXIS_LIGHT = "#6b7178";
 
 function yFormatter(metric: TrendMetric, value: number): string {
-  if (metric === 'accuracy') {
+  if (metric === "accuracy") {
     return formatPercent(value);
   }
-  if (metric === 'averageLatencyMs') {
+  if (metric === "averageLatencyMs") {
     return formatMs(value);
   }
   return formatWpm(value);
@@ -35,9 +48,16 @@ function yFormatter(metric: TrendMetric, value: number): string {
 
 // Widgets 2-4 — linhas de evolução (PPM, precisão, latência). Série diária (RN35),
 // janela selecionada na página (7/30/90/custom); linha tracejada = período anterior.
-export function TrendChart({ title, points, comparisonPoints, metric, color, comparisonColor = '#94a3b8' }: TrendChartProps): ReactNode {
+export function TrendChart({
+  title,
+  points,
+  comparisonPoints,
+  metric,
+  color,
+  comparisonColor = "#94a3b8",
+}: TrendChartProps): ReactNode {
   const { theme } = useTheme();
-  const isLight = theme === 'light';
+  const isLight = theme === "light";
   const gridStroke = isLight ? GRID_LIGHT : GRID_DARK;
   const axisStroke = isLight ? AXIS_LIGHT : AXIS_DARK;
 
@@ -45,7 +65,9 @@ export function TrendChart({ title, points, comparisonPoints, metric, color, com
     return (
       <div className="rounded-lg border border-hairline bg-surface-1 p-4">
         <h3 className="text-sm font-semibold text-ink-muted">{title}</h3>
-        <p className="mt-3 text-sm text-ink-subtle">Sem dados na janela selecionada.</p>
+        <p className="mt-3 text-sm text-ink-subtle">
+          Sem dados na janela selecionada.
+        </p>
       </div>
     );
   }
@@ -54,7 +76,7 @@ export function TrendChart({ title, points, comparisonPoints, metric, color, com
   const allPoints = [...points];
   if (comparisonPoints && comparisonPoints.length > 0) {
     for (const cp of comparisonPoints) {
-      if (!allPoints.some(p => p.date === cp.date)) {
+      if (!allPoints.some((p) => p.date === cp.date)) {
         allPoints.push(cp);
       }
     }
@@ -68,11 +90,17 @@ export function TrendChart({ title, points, comparisonPoints, metric, color, com
         {comparisonPoints && comparisonPoints.length > 0 && (
           <div className="flex items-center gap-2 text-xs text-ink-subtle">
             <span className="inline-flex items-center gap-1">
-              <span className="inline-block w-4 h-0.5 bg-current" style={{ backgroundColor: color }} />
+              <span
+                className="inline-block w-4 h-0.5 bg-current"
+                style={{ backgroundColor: color }}
+              />
               <span>Atual</span>
             </span>
             <span className="inline-flex items-center gap-1">
-              <span className="inline-block w-4 h-0.5 border-t border-dashed" style={{ borderColor: comparisonColor }} />
+              <span
+                className="inline-block w-4 h-0.5 border-t border-dashed"
+                style={{ borderColor: comparisonColor }}
+              />
               <span>Período anterior</span>
             </span>
           </div>
@@ -80,7 +108,10 @@ export function TrendChart({ title, points, comparisonPoints, metric, color, com
       </div>
       <div className="h-52">
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={allPoints} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
+          <LineChart
+            data={allPoints}
+            margin={{ top: 8, right: 12, left: 0, bottom: 0 }}
+          >
             <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} />
             <XAxis
               dataKey="date"
@@ -90,19 +121,19 @@ export function TrendChart({ title, points, comparisonPoints, metric, color, com
               interval="preserveStartEnd"
             />
             <YAxis
-              domain={['auto', 'auto']}
+              domain={["auto", "auto"]}
               tickFormatter={(value: number) => yFormatter(metric, value)}
               tick={{ fontSize: 11 }}
               width={48}
               stroke={axisStroke}
             />
             <Tooltip
-              labelFormatter={(label) => formatDateKey(String(label))}
+              labelFormatter={(label) => formatDateKey(label as string)}
               formatter={(value, name) => {
                 if (name === metric) {
-                  return [yFormatter(metric, Number(value)), 'Atual'];
+                  return [yFormatter(metric, Number(value)), "Atual"];
                 }
-                return [yFormatter(metric, Number(value)), 'Anterior'];
+                return [yFormatter(metric, Number(value)), "Anterior"];
               }}
             />
             <Line
