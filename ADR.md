@@ -611,4 +611,4 @@ Regras de dependência da apresentação:
 * (0) Nenhuma RN no cliente (ADR-018); o web apenas renderiza DTOs pré-agregados.
 
 **Referências:**
-* `PRD.md` RN34–RN37 (§27), §26 (params `MPI_*`/`DASHBOARD_*`), §28.1 (RNF11), §28.4 (conflito RNF06×RNF11), §29, §30 (FASE 9); `CONSTITUTION.md` §5 (SDD); `ADR.md` ADR-006 (params), ADR-005 (ports), ADR-016 (Next), ADR-018 (sem RN na apresentação), ADR-019 (padrão de WRITE extra no submit); `BACKLOG.md` TASK-092–100
+* `PRD.md` RN34–RN37 (§27), §26 (params `MPI_*`/`DASHBOARD_*`), §28.1 (RNF11), §28.4 (conflito RNF06×RNF11), §29, §30 (FASE 9); `CONSTITUTION.md` §5 (SDD); `ADR.md` ADR-006 (params), ADR-005 (ports), ADR-016 (Next), ADR-018 (sem RN na apresentação), ADR-019 (padrão de WRITE extra no submit); `BACKLOG.md` TASK-092–102 (Fase 9 concluída)

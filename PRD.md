@@ -1147,4 +1147,4 @@ Histórico consolidado:
 - v1.6: RN34–RN37 + RNF11 (Fase 9 — dashboard) — ver §27, §28.1, §26 e ADR-020.
 - v1.7: RN38–RN40 (apresentação do cliente web) — ver §27, §26, ADR-018.
 
-Fase 1 (Domain Core) concluída; Fases 2–7 concluídas (backend assíncrono real, 620 testes); Fase 8 concluída (migração web/Nest via ADR-016/017/018); **Fase 9 em implementação** (TASK-092–100). Pendências "A VALIDAR" resolvidas (ADR-010).
+Fase 1 (Domain Core) concluída; Fases 2–7 concluídas (backend assíncrono real, 620 testes); Fase 8 concluída (migração web/Nest via ADR-016/017/018); **Fase 9 concluída** (dashboard RN34–RN37/RNF11 + apresentação web RN38–RN40; TASK-092–102; 665 testes backend + 29 web + 22 desktop). Pendências "A VALIDAR" resolvidas (ADR-010).
