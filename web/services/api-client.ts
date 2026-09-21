@@ -7,6 +7,7 @@ import type {
   RefreshTokenResponseDTO,
   RegisterUserDTO,
   RegisterUserResponseDTO,
+  UpdateUserLayoutResponseDTO,
 } from "@/models/auth";
 import type { LessonDTO, LessonPerformanceDTO } from "@/models/lesson";
 import type {
@@ -151,6 +152,18 @@ export class ApiClient {
 
   async getMe(token: string): Promise<GetUserResponseDTO> {
     return this.request<GetUserResponseDTO>("/users/me", {}, token);
+  }
+
+  // UI-UX-SRD §6.7 - altera o layout ativo do usuário (PATCH /users/me, TASK-057)
+  async updateLayout(
+    layout: string,
+    token: string,
+  ): Promise<UpdateUserLayoutResponseDTO> {
+    return this.request<UpdateUserLayoutResponseDTO>(
+      "/users/me",
+      { method: "PATCH", body: { layout } },
+      token,
+    );
   }
 
   async listLessons(token: string): Promise<LessonDTO[]> {

@@ -18,6 +18,7 @@ interface AuthContextValue {
   accessToken: string | null;
   loading: boolean;
   refresh: () => Promise<string | null>;
+  updateLayout: (layout: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -34,6 +35,23 @@ export function AuthProvider({ children }: Readonly<{ children: ReactNode }>): R
       setAccessToken(result.accessToken);
     }
     return result.accessToken;
+  };
+
+  // UI-UX-SRD §6.7 - PATCH /users/me (layout) e reflete a resposta no usuário do contexto
+  const updateLayout = async (layout: string): Promise<void> => {
+    if (accessToken === null || user === null) {
+      throw new Error('Você não está autenticado.');
+    }
+    const updated = await createControllers().user.updateLayout(layout, accessToken);
+    setUser((previous) =>
+      previous === null
+        ? previous
+        : {
+            ...previous,
+            activeLayout: updated.activeLayout,
+            currentLevel: updated.currentLevel,
+          },
+    );
   };
 
   useEffect(() => {
@@ -73,7 +91,7 @@ export function AuthProvider({ children }: Readonly<{ children: ReactNode }>): R
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, accessToken, loading, refresh }}>
+    <AuthContext.Provider value={{ user, accessToken, loading, refresh, updateLayout }}>
       {children}
     </AuthContext.Provider>
   );

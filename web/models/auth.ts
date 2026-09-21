@@ -35,3 +35,9 @@ export interface GetUserResponseDTO {
   activeLayout: string;
   currentLevel: number;
 }
+
+export interface UpdateUserLayoutResponseDTO {
+  userId: string;
+  activeLayout: string;
+  currentLevel: number;
+}

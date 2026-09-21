@@ -23,6 +23,9 @@ export function AppNav(): ReactNode {
               <Link href="/app/dashboard" className="text-ink-muted hover:text-ink">
                 Dashboard
               </Link>
+              <Link href="/app/profile" className="text-ink-muted hover:text-ink">
+                Perfil
+              </Link>
             </>
           )}
         </nav>

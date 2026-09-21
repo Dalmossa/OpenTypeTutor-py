@@ -54,6 +54,12 @@ export default function AppHomePage(): ReactNode {
         >
           Dashboard
         </Link>
+        <Link
+          href="/app/profile"
+          className="rounded-md border border-hairline-strong px-4 py-2 text-ink-muted"
+        >
+          Perfil
+        </Link>
       </div>
       <p className="text-sm text-ink-subtle">
         Sessão de digitação, progresso por tecla e dashboard de evolução (PPM, precisão, latência).
