@@ -2,18 +2,23 @@
 
 ## Quick Reference
 
-| Command | Purpose |
-|---------|---------|
-| `npm run dev` | Start dev server with hot reload (tsx watch) |
-| `npm run build` | Compile TypeScript to `dist/` |
-| `npm start` | Run production build from `dist/` |
-| `npm run lint` | Lint source (strict, boundary checks) |
-| `npm run lint:fix` | Auto-fix lint issues |
-| `npm run typecheck` | Type-check without emit |
-| `npm run test` | Run vitest once (90% coverage threshold on domain) |
-| `npm run test:watch` | Watch mode |
-| `npm run test:coverage` | Coverage report (v8 provider) |
-| `npm run bench` | Run autocannon benchmark (RNF06) |
+| Command                          | Purpose                                                  |
+| -------------------------------- | -------------------------------------------------------- |
+| `npm run dev`                    | Start dev server with hot reload (tsx watch)             |
+| `npm run build`                  | Compile TypeScript to `dist/`                            |
+| `npm start`                      | Run production build from `dist/`                        |
+| `npm run lint`                   | Lint source (strict, boundary checks)                    |
+| `npm run lint:fix`               | Auto-fix lint issues                                     |
+| `npm run typecheck`              | Type-check without emit                                  |
+| `npm run test`                   | Run vitest once (90% coverage threshold on domain)       |
+| `npm run test:watch`             | Watch mode                                               |
+| `npm run test:coverage`          | Coverage report (v8 provider)                            |
+| `npm run bench`                  | Run autocannon benchmark (RNF06)                         |
+| `npm --prefix web run dev`       | Start Next.js web (porta 3000, rewrite `/api` → backend) |
+| `npm --prefix web run lint`      | Lint web (eslint flat config + `--max-warnings 0`)       |
+| `npm --prefix web run typecheck` | Type-check web (`tsc --noEmit`)                          |
+| `npm --prefix web run test`      | Run web vitest                                           |
+| `npm --prefix web run build`     | Production build Next.js                                 |
 
 **Order matters:** `lint → typecheck → test` (CI pipeline order)
 
@@ -39,11 +44,13 @@ src/
 ```
 
 **Dependency rule (enforced by lint):**
+
 - `presentation → application → domain ← infrastructure`
 - Domain NEVER imports: `express`, `typeorm`, `bcrypt`, `jsonwebtoken`, `zod`, `pino`
 - Infrastructure implements domain repository interfaces
 
 ### Presentation clients follow MVC (ADR-018)
+
 - Clientes de UI (desktop `desktop/src/opentype_tutor/{models,views,controllers,services}` e a futura UI Next.js da Fase 8) seguem o **protocolo MVC**: `views/` → `controllers/` → `services/` → REST.
 - **Nenhuma RN no cliente** — RN14 (idempotência), RN22 (insufficient-data), RN16/17 (auth/posse) permanecem no backend; a apresentação só consome o REST.
 - Models de UI são DTOs, nunca entidades de domínio.
@@ -53,23 +60,26 @@ src/
 ## Key Conventions
 
 ### TypeScript
+
 - `strict: true`, `noImplicitAny: true`, exactOptionalPropertyTypes, noUncheckedIndexedAccess
 - Path alias: `@/*` → `src/*` (tsconfig + vitest)
 - `any` is an error (eslint `@typescript-eslint/no-explicit-any: error`)
 
 ### Testing (vitest)
+
 - Tests live beside code: `*.test.ts` in `src/`
 - Only domain tests counted for 90% coverage threshold (`vitest.config.ts` line 12)
 - Test names trace to PRD rules: `RN14 - submit de sessão já completada não reprocessa`
 - Run single test: `npx vitest run -t "RN14"`
 
 ### Lint Boundaries (eslint-plugin-boundaries)
-| Layer | Can import | Cannot import |
-|-------|------------|---------------|
-| `domain/*` | `domain/*`, `shared/*` | `infrastructure/*`, `presentation/*`, `application/*`, `express`, `typeorm`, `bcrypt`, `jsonwebtoken`, `zod`, `pino` |
-| `application/*` | `application/*`, `domain/*`, `shared/*` | `infrastructure/*`, `presentation/*`, `express`, `typeorm`, `bcrypt`, `jsonwebtoken`, `pino` |
-| `infrastructure/*` | `infrastructure/*`, `domain/*`, `application/*`, `shared/*` | `presentation/*`, `express` |
-| `presentation/*` | `presentation/*`, `application/*`, `domain/*`, `shared/*`, `express`, `zod` | `infrastructure/*`, `typeorm`, `bcrypt`, `jsonwebtoken`, `pino` |
+
+| Layer              | Can import                                                                  | Cannot import                                                                                                        |
+| ------------------ | --------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `domain/*`         | `domain/*`, `shared/*`                                                      | `infrastructure/*`, `presentation/*`, `application/*`, `express`, `typeorm`, `bcrypt`, `jsonwebtoken`, `zod`, `pino` |
+| `application/*`    | `application/*`, `domain/*`, `shared/*`                                     | `infrastructure/*`, `presentation/*`, `express`, `typeorm`, `bcrypt`, `jsonwebtoken`, `pino`                         |
+| `infrastructure/*` | `infrastructure/*`, `domain/*`, `application/*`, `shared/*`                 | `presentation/*`, `express`                                                                                          |
+| `presentation/*`   | `presentation/*`, `application/*`, `domain/*`, `shared/*`, `express`, `zod` | `infrastructure/*`, `typeorm`, `bcrypt`, `jsonwebtoken`, `pino`                                                      |
 
 Violations = build failure.
 
@@ -85,10 +95,12 @@ Violations = build failure.
 - **RN22**: Sessions `< 3000ms` OR `< 5 chars` → `insufficient-data` (no WPM)
 
 ### Mastery (RN09)
+
 ```
 KeyAccuracy ≥ 95% AND attempts ≥ 30 AND avgLatency ≤ 500ms
 → 3 consecutive mastery-approved sessions → MASTERED
 ```
+
 - `KeyAccuracy = 1 − ErrorRate` (RN20)
 - Regression: 3 consecutive non-approved sessions (RN10)
 - Two counters: `consecutiveMasterySessions` (pre-MASTERED), `regressionSessions` (post-MASTERED) — never increment together
@@ -97,8 +109,8 @@ KeyAccuracy ≥ 95% AND attempts ≥ 30 AND avgLatency ≤ 500ms
 
 ## Language Policy (ADR-011)
 
-| Fica em pt-BR | Fica em inglês |
-|---|---|
+| Fica em pt-BR                                            | Fica em inglês                                            |
+| -------------------------------------------------------- | --------------------------------------------------------- |
 | `message` de erro, logs para humanos, conteúdo de lições | `code` de erro, identificadores de código, rotas, commits |
 
 - Error catalog (code → pt-BR message) lives in `PRD.md` §28.5 — centralize as `shared/errors/ERROR_CODES.ts` (TASK-071), don't inline strings in controllers.
@@ -109,13 +121,13 @@ KeyAccuracy ≥ 95% AND attempts ≥ 30 AND avgLatency ≤ 500ms
 
 ## Security Parameters (validated in ADR-010)
 
-| Param | Value | Location |
-|-------|-------|----------|
-| `BCRYPT_SALT_ROUNDS` | 12 | `infrastructure/auth/authParams.ts` |
-| `JWT_ACCESS_EXPIRATION` | `15m` (short-lived) | `infrastructure/auth/authParams.ts` |
-| `JWT_REFRESH_EXPIRATION` | `30d` (long-lived) | `infrastructure/auth/authParams.ts` |
-| `MIN_PASSWORD_LENGTH` | 8 (no complexity) | `infrastructure/auth/authParams.ts` |
-| `ACTIVE_DURATION_EPSILON_MS` | 1000 | `domain/config/adaptiveParams.ts` |
+| Param                        | Value               | Location                            |
+| ---------------------------- | ------------------- | ----------------------------------- |
+| `BCRYPT_SALT_ROUNDS`         | 12                  | `infrastructure/auth/authParams.ts` |
+| `JWT_ACCESS_EXPIRATION`      | `15m` (short-lived) | `infrastructure/auth/authParams.ts` |
+| `JWT_REFRESH_EXPIRATION`     | `30d` (long-lived)  | `infrastructure/auth/authParams.ts` |
+| `MIN_PASSWORD_LENGTH`        | 8 (no complexity)   | `infrastructure/auth/authParams.ts` |
+| `ACTIVE_DURATION_EPSILON_MS` | 1000                | `domain/config/adaptiveParams.ts`   |
 
 **Never hardcode** — all centralized, never inline in logic.
 
@@ -135,15 +147,15 @@ KeyAccuracy ≥ 95% AND attempts ≥ 30 AND avgLatency ≤ 500ms
 
 ## Reference Documents
 
-| File | Purpose |
-|------|---------|
-| `PRD.md` | Product requirements, domain rules (RN01–RN23), NFRs — single source of truth |
-| `SRD.md` | SRD *container* (Sommerville §6.2–6.4): system models (Mermaid), interface spec, assumptions. References PRD — never duplicates RN/RNF/catalog (ADR-015) |
-| `CONSTITUTION.md` | Engineering principles (TDD, SDD, boundaries, security) |
-| `ADR.md` | Technical decisions (stack, auth, DB strategy, params) |
-| `BACKLOG.md` | Executable tasks with traceability to PRD/ADR |
-| `eslint.config.mjs` | Boundary enforcement rules |
-| `vitest.config.ts` | Test config (90% domain coverage, all tests run — no name filtering) |
+| File                | Purpose                                                                                                                                                  |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `PRD.md`            | Product requirements, domain rules (RN01–RN23), NFRs — single source of truth                                                                            |
+| `SRD.md`            | SRD _container_ (Sommerville §6.2–6.4): system models (Mermaid), interface spec, assumptions. References PRD — never duplicates RN/RNF/catalog (ADR-015) |
+| `CONSTITUTION.md`   | Engineering principles (TDD, SDD, boundaries, security)                                                                                                  |
+| `ADR.md`            | Technical decisions (stack, auth, DB strategy, params)                                                                                                   |
+| `BACKLOG.md`        | Executable tasks with traceability to PRD/ADR                                                                                                            |
+| `eslint.config.mjs` | Boundary enforcement rules                                                                                                                               |
+| `vitest.config.ts`  | Test config (90% domain coverage, all tests run — no name filtering)                                                                                     |
 
 ---
 
@@ -164,6 +176,7 @@ This project has a knowledge graph at graphify-out/ with god nodes, community st
 When the user types `/graphify`, use the installed graphify skill or instructions before doing anything else.
 
 Rules:
+
 - For codebase questions, first run `graphify query "<question>"` when graphify-out/graph.json exists. Use `graphify path "<A>" "<B>"` for relationships and `graphify explain "<concept>"` for focused concepts. These return a scoped subgraph, usually much smaller than GRAPH_REPORT.md or raw grep output.
 - Dirty graphify-out/ files are expected after hooks or incremental updates; dirty graph files are not a reason to skip graphify. Only skip graphify if the task is about stale or incorrect graph output, or the user explicitly says not to use it.
 - If graphify-out/wiki/index.md exists, use it for broad navigation instead of raw source browsing.

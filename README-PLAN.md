@@ -298,7 +298,7 @@ Contrato de backend já disponível (Fase 9): `GET /users/me` e `PATCH /users/me
    - Seletor de layout (ABNT2 / US-INTERNATIONAL) + **preview do teclado** (render simples das teclas).
    - Aviso RN11: desempenho por tecla é isolado por layout.
    - `PATCH /users/me` ao trocar; atualizar contexto de auth (resposta devolve `activeLayout`/`currentLevel`).
-   - Fase da jornada: derivar do `currentLevel` via `web/lib/pedagogical.ts` (sem inventar regra). **Fuso horário (RN37)**: não está no `GetUserResponseDTO` → fora de escopo do cliente; anotar como dependência de backend, não exibir inventando dado.
+   - Fase da jornada: derivar do `currentLevel` via `web/lib/pedagogical.ts` (sem inventar regra). **Fuso horário (RN37)**: exposto no `GetUserResponseDTO` (TASK-106) como `timezone` IANA (padrão `America/Sao_Paulo`) e exibido na página; sem edição no cliente.
 3. Navegação — link "Perfil" no `web/components/app-nav.tsx` (desktop) e no hub móvel (`/app/page.tsx`).
 4. Testes (TDD, vitest web): `updateLayout` (api-client via fetch mock) e `page.test.tsx` (render com auth mock, troca de layout → PATCH chamado + preview atualizado). Rodar `tsc --noEmit`, `vitest run`, `npm run build`.
 
