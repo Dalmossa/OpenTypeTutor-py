@@ -780,6 +780,61 @@ describe("TASK-059 - POST /sessions/:id/submit", () => {
     expect(res.status).toBe(422);
     expect(calls.submit).not.toHaveBeenCalled();
   });
+
+  it("DEAD_KEY_COMPOSE com expectedKey vazio é aceito (TASK-084 no HTTP)", async () => {
+    const { app, calls } = buildTestApp();
+    const res = await request(app)
+      .post(`/sessions/${SESSION_ID}/submit`)
+      .set("Authorization", "Bearer token")
+      .send({
+        keystrokes: [
+          {
+            expectedKey: "",
+            typedKey: null,
+            physicalKey: "Compose",
+            logicalKey: "Compose",
+            eventType: "DEAD_KEY_COMPOSE",
+            timestampMs: 1050,
+            latencyMs: null,
+            composedCharacter: null,
+          },
+          {
+            expectedKey: "á",
+            typedKey: "á",
+            physicalKey: "KeyA",
+            logicalKey: "á",
+            eventType: "CORRECT",
+            timestampMs: 1100,
+            latencyMs: 50,
+            composedCharacter: "á",
+          },
+        ],
+      });
+
+    expect(res.status).toBe(200);
+    expect(calls.submit).toHaveBeenCalledOnce();
+  });
+
+  it("expectedKey vazio em evento digitado ainda é rejeitado → 422", async () => {
+    const { app, calls } = buildTestApp();
+    const res = await request(app)
+      .post(`/sessions/${SESSION_ID}/submit`)
+      .set("Authorization", "Bearer token")
+      .send({
+        keystrokes: [
+          {
+            expectedKey: "",
+            physicalKey: "KeyA",
+            logicalKey: "a",
+            eventType: "CORRECT",
+            timestampMs: 100,
+          },
+        ],
+      });
+
+    expect(res.status).toBe(422);
+    expect(calls.submit).not.toHaveBeenCalled();
+  });
 });
 
 describe("TASK-060/061 - /me/reinforcement-lesson e /me/progress", () => {

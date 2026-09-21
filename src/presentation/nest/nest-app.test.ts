@@ -487,6 +487,63 @@ describe("Nest - rotas de sessão, lições e pedagógico (TASK-082)", () => {
     await app.close();
   });
 
+  it("POST /sessions/:id/submit aceita DEAD_KEY_COMPOSE com expectedKey vazio (compose)", async () => {
+    const { app, calls } = await buildNestApp();
+    const res = await request(httpServer(app))
+      .post(`/sessions/${SESSION_ID}/submit`)
+      .set("Authorization", "Bearer valid")
+      .send({
+        keystrokes: [
+          {
+            expectedKey: "",
+            typedKey: null,
+            physicalKey: "Compose",
+            logicalKey: "Compose",
+            eventType: "DEAD_KEY_COMPOSE",
+            timestampMs: 1050,
+            latencyMs: null,
+            composedCharacter: null,
+          },
+          {
+            expectedKey: "á",
+            typedKey: "á",
+            physicalKey: "KeyA",
+            logicalKey: "á",
+            eventType: "CORRECT",
+            timestampMs: 1150,
+            latencyMs: 100,
+            composedCharacter: "á",
+          },
+        ],
+      });
+
+    expect(res.status).toBe(200);
+    expect(calls.submit).toHaveBeenCalledOnce();
+    await app.close();
+  });
+
+  it("POST /sessions/:id/submit rejeita expectedKey vazio em evento digitado → 422", async () => {
+    const { app } = await buildNestApp();
+    const res = await request(httpServer(app))
+      .post(`/sessions/${SESSION_ID}/submit`)
+      .set("Authorization", "Bearer valid")
+      .send({
+        keystrokes: [
+          {
+            expectedKey: "",
+            physicalKey: "KeyA",
+            logicalKey: "a",
+            eventType: "CORRECT",
+            timestampMs: 100,
+          },
+        ],
+      });
+
+    expect(res.status).toBe(422);
+    expect(asErrorBody(res.body).error.code).toBe("VALIDATION_ERROR");
+    await app.close();
+  });
+
   it("GET /lessons/:id com uuid inválido → 422 VALIDATION_ERROR", async () => {
     const { app } = await buildNestApp();
     const res = await request(httpServer(app))

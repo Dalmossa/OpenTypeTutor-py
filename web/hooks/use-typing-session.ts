@@ -1,6 +1,6 @@
-'use client';
+"use client";
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import type {
   EventType,
@@ -8,11 +8,11 @@ import type {
   SessionMetricsDTO,
   SessionState,
   SubmitSessionResponseDTO,
-} from '@/models/session';
-import type { LessonDTO } from '@/models/lesson';
-import { createControllers } from '@/controllers';
-import type { SessionController } from '@/controllers/session-controller';
-import type { ApiError } from '@/services/api-client';
+} from "@/models/session";
+import type { LessonDTO } from "@/models/lesson";
+import { createControllers } from "@/controllers";
+import type { SessionController } from "@/controllers/session-controller";
+import type { ApiError } from "@/services/api-client";
 
 export interface TypingSessionStats {
   typed: number;
@@ -28,7 +28,15 @@ export interface TypingSessionStats {
 }
 
 export interface TypingSessionState {
-  phase: 'idle' | 'loading' | 'break' | 'typing' | 'paused' | 'submitting' | 'completed' | 'error';
+  phase:
+    | "idle"
+    | "loading"
+    | "break"
+    | "typing"
+    | "paused"
+    | "submitting"
+    | "completed"
+    | "error";
   lesson: LessonDTO | null;
   sessionId: string | null;
   token: string | null;
@@ -73,7 +81,7 @@ export interface UseTypingSessionResult extends TypingSessionState {
 export function useTypingSession(): UseTypingSessionResult {
   const sessions = useRef<SessionController | null>(null);
   const [session, setSession] = useState<TypingSessionState>({
-    phase: 'idle',
+    phase: "idle",
     lesson: null,
     sessionId: null,
     token: null,
@@ -82,14 +90,14 @@ export function useTypingSession(): UseTypingSessionResult {
     progress: 0,
     position: 0,
     errorIndexes: [],
-    composition: '',
+    composition: "",
     result: null,
     lastInsecureKeys: [],
     errorMessage: null,
     breakRemainingMs: 0,
   });
 
-  const targetRef = useRef<string>('');
+  const targetRef = useRef<string>("");
   const positionRef = useRef(0);
   const errorsRef = useRef(new Set<number>());
   const keystrokesRef = useRef<KeystrokeEventDTO[]>([]);
@@ -101,10 +109,11 @@ export function useTypingSession(): UseTypingSessionResult {
   const sessionIdRef = useRef<string | null>(null);
   const tokenRef = useRef<string | null>(null);
   const submittedRef = useRef(false);
-  const compositionRef = useRef<string>('');
+  const compositionRef = useRef<string>("");
   const compositionStartRef = useRef<number | null>(null);
   const statsRef = useRef<TypingSessionStats>(EMPTY_STATS);
   const pausedRef = useRef(false);
+  const autoSubmitFailedRef = useRef(false);
   const breakTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const getActiveDurationMs = useCallback((): number => {
@@ -128,10 +137,18 @@ export function useTypingSession(): UseTypingSessionResult {
         latencyCount += 1;
       }
     }
-    const typed = keystrokesRef.current.filter((k) => k.eventType !== 'DEAD_KEY_COMPOSE').length;
-    const correct = keystrokesRef.current.filter((k) => k.eventType === 'CORRECT').length;
-    const incorrect = keystrokesRef.current.filter((k) => k.eventType === 'INCORRECT').length;
-    const corrections = keystrokesRef.current.filter((k) => k.eventType === 'CORRECTION').length;
+    const typed = keystrokesRef.current.filter(
+      (k) => k.eventType !== "DEAD_KEY_COMPOSE",
+    ).length;
+    const correct = keystrokesRef.current.filter(
+      (k) => k.eventType === "CORRECT",
+    ).length;
+    const incorrect = keystrokesRef.current.filter(
+      (k) => k.eventType === "INCORRECT",
+    ).length;
+    const corrections = keystrokesRef.current.filter(
+      (k) => k.eventType === "CORRECTION",
+    ).length;
     const errors = errorsRef.current.size;
     const activeDurationMs = getActiveDurationMs();
     const minutes = Math.max(activeDurationMs / 60000.0, 1 / 60);
@@ -153,18 +170,21 @@ export function useTypingSession(): UseTypingSessionResult {
     setSession((prev) => ({ ...prev, ...patch }));
   }, []);
 
-  const pushKeystroke = useCallback((keystroke: KeystrokeEventDTO) => {
-    keystrokesRef.current.push(keystroke);
-    const stats = computeStats();
-    statsRef.current = stats;
-    const progress = mathProgress();
-    patchSession({
-      stats,
-      progress,
-      position: positionRef.current,
-      errorIndexes: Array.from(errorsRef.current).sort((a, b) => a - b),
-    });
-  }, [computeStats, patchSession]);
+  const pushKeystroke = useCallback(
+    (keystroke: KeystrokeEventDTO) => {
+      keystrokesRef.current.push(keystroke);
+      const stats = computeStats();
+      statsRef.current = stats;
+      const progress = mathProgress();
+      patchSession({
+        stats,
+        progress,
+        position: positionRef.current,
+        errorIndexes: Array.from(errorsRef.current).sort((a, b) => a - b),
+      });
+    },
+    [computeStats, patchSession],
+  );
 
   function mathProgress(): number {
     if (targetRef.current.length === 0) {
@@ -174,7 +194,14 @@ export function useTypingSession(): UseTypingSessionResult {
   }
 
   const makeEvent = useCallback(
-    (expected: string, typed: string | null, physical: string, logical: string, eventType: EventType, composed: string | null): KeystrokeEventDTO => {
+    (
+      expected: string,
+      typed: string | null,
+      physical: string,
+      logical: string,
+      eventType: EventType,
+      composed: string | null,
+    ): KeystrokeEventDTO => {
       const now = Date.now();
       let latencyMs: number | null = null;
       if (lastLatencyRef.current !== null) {
@@ -196,18 +223,26 @@ export function useTypingSession(): UseTypingSessionResult {
   );
 
   const createSession = useCallback(
-    async (lessonId: string, lesson: LessonDTO, token: string): Promise<void> => {
+    async (
+      lessonId: string,
+      lesson: LessonDTO,
+      token: string,
+    ): Promise<void> => {
       try {
         const response = await sessions.current?.start(lessonId, token);
         if (response === undefined) {
-          throw new Error('Sessão não inicializada');
+          throw new Error("Sessão não inicializada");
         }
         sessionIdRef.current = response.sessionId;
         activeStartRef.current = Date.now();
-        patchSession({ phase: 'typing', sessionId: response.sessionId, state: response.state });
+        patchSession({
+          phase: "typing",
+          sessionId: response.sessionId,
+          state: response.state,
+        });
       } catch (err) {
         patchSession({
-          phase: 'error',
+          phase: "error",
           sessionId: null,
           errorMessage: toMessage(err),
         });
@@ -223,7 +258,7 @@ export function useTypingSession(): UseTypingSessionResult {
         clearInterval(breakTimerRef.current);
         breakTimerRef.current = null;
       }
-      targetRef.current = lesson.content.replace(/[\r\n]+/g, ' ');
+      targetRef.current = lesson.content.replace(/[\r\n]+/g, " ");
       positionRef.current = 0;
       errorsRef.current = new Set();
       keystrokesRef.current = [];
@@ -232,11 +267,12 @@ export function useTypingSession(): UseTypingSessionResult {
       pauseStartRef.current = null;
       submittedRef.current = false;
       pausedRef.current = false;
+      autoSubmitFailedRef.current = false;
       sessionIdRef.current = null;
       tokenRef.current = token;
       statsRef.current = EMPTY_STATS;
       patchSession({
-        phase: 'loading',
+        phase: "loading",
         lesson,
         sessionId: null,
         token,
@@ -245,7 +281,7 @@ export function useTypingSession(): UseTypingSessionResult {
         progress: 0,
         position: 0,
         errorIndexes: [],
-        composition: '',
+        composition: "",
         result: null,
         lastInsecureKeys: [],
         errorMessage: null,
@@ -258,7 +294,11 @@ export function useTypingSession(): UseTypingSessionResult {
       let breakRemainingMs = 0;
       try {
         const status = await sessions.current?.getPracticeStatus(token);
-        if (status !== undefined && status.breakRequired && status.breakRemainingMs > 0) {
+        if (
+          status !== undefined &&
+          status.breakRequired &&
+          status.breakRemainingMs > 0
+        ) {
           breakRemainingMs = status.breakRemainingMs;
         }
       } catch {
@@ -267,9 +307,12 @@ export function useTypingSession(): UseTypingSessionResult {
 
       if (breakRemainingMs > 0) {
         const startAt = Date.now();
-        patchSession({ phase: 'break', breakRemainingMs });
+        patchSession({ phase: "break", breakRemainingMs });
         breakTimerRef.current = setInterval(() => {
-          const remaining = Math.max(0, breakRemainingMs - (Date.now() - startAt));
+          const remaining = Math.max(
+            0,
+            breakRemainingMs - (Date.now() - startAt),
+          );
           patchSession({ breakRemainingMs: remaining });
           if (remaining === 0 && breakTimerRef.current !== null) {
             clearInterval(breakTimerRef.current);
@@ -293,14 +336,21 @@ export function useTypingSession(): UseTypingSessionResult {
       if (positionRef.current >= targetRef.current.length) {
         return;
       }
-      const expected = targetRef.current[positionRef.current] ?? '';
+      const expected = targetRef.current[positionRef.current] ?? "";
       const isCorrect = typedChar === expected;
       if (!isCorrect) {
         errorsRef.current.add(positionRef.current);
       }
       positionRef.current += 1;
       pushKeystroke(
-        makeEvent(expected, typedChar, physicalKey, physicalKey, isCorrect ? 'CORRECT' : 'INCORRECT', null),
+        makeEvent(
+          expected,
+          typedChar,
+          physicalKey,
+          physicalKey,
+          isCorrect ? "CORRECT" : "INCORRECT",
+          null,
+        ),
       );
     },
     [makeEvent, pushKeystroke],
@@ -313,7 +363,7 @@ export function useTypingSession(): UseTypingSessionResult {
       }
       if (text.length > positionRef.current) {
         const nextChar = inserted ?? text[positionRef.current];
-        if (nextChar !== undefined && nextChar !== null && nextChar !== '') {
+        if (nextChar !== undefined && nextChar !== null && nextChar !== "") {
           commitChar(nextChar, nextChar);
         }
       }
@@ -331,67 +381,75 @@ export function useTypingSession(): UseTypingSessionResult {
     }
     positionRef.current = correctedIndex;
     errorsRef.current.delete(correctedIndex);
-    const expected = targetRef.current[correctedIndex] ?? '';
-    pushKeystroke(makeEvent(expected, null, 'Backspace', 'Backspace', 'CORRECTION', null));
+    const expected = targetRef.current[correctedIndex] ?? "";
+    pushKeystroke(
+      makeEvent(expected, null, "Backspace", "Backspace", "CORRECTION", null),
+    );
   }, [makeEvent, pushKeystroke]);
 
-  const handleCompositionChange = useCallback((text: string) => {
-    const wasEmpty = compositionRef.current.length === 0;
-    compositionRef.current = text;
-    patchSession({ composition: text });
-    if (wasEmpty && text.length > 0 && compositionStartRef.current === null) {
-      compositionStartRef.current = Date.now();
-      pushKeystroke({
-        expectedKey: '',
-        typedKey: null,
-        physicalKey: 'Compose',
-        logicalKey: 'Compose',
-        eventType: 'DEAD_KEY_COMPOSE',
-        timestampMs: compositionStartRef.current,
-        latencyMs: null,
-        composedCharacter: null,
-      });
-    }
-  }, [patchSession, pushKeystroke]);
+  const handleCompositionChange = useCallback(
+    (text: string) => {
+      const wasEmpty = compositionRef.current.length === 0;
+      compositionRef.current = text;
+      patchSession({ composition: text });
+      if (wasEmpty && text.length > 0 && compositionStartRef.current === null) {
+        compositionStartRef.current = Date.now();
+        pushKeystroke({
+          expectedKey: "",
+          typedKey: null,
+          physicalKey: "Compose",
+          logicalKey: "Compose",
+          eventType: "DEAD_KEY_COMPOSE",
+          timestampMs: compositionStartRef.current,
+          latencyMs: null,
+          composedCharacter: null,
+        });
+      }
+    },
+    [patchSession, pushKeystroke],
+  );
 
-  const handleCompositionEnd = useCallback((composedOverride?: string) => {
-    if (submittedRef.current || pausedRef.current) {
-      return;
-    }
-    const composed = composedOverride ?? compositionRef.current;
-    const composeStart = compositionStartRef.current;
-    compositionRef.current = '';
-    compositionStartRef.current = null;
-    patchSession({ composition: '' });
-    if (composed.length === 0) {
-      return;
-    }
-    positionRef.current += composed.length - 1;
-    const expected = targetRef.current[positionRef.current] ?? '';
-    positionRef.current += 1;
-    const isCorrect = composed === expected;
-    if (!isCorrect) {
-      errorsRef.current.add(positionRef.current - 1);
-    }
-    if (composeStart !== null) {
-      lastLatencyRef.current = composeStart;
-    }
-    pushKeystroke(
-      makeEvent(
-        expected,
-        composed,
-        composed,
-        composed,
-        isCorrect ? 'CORRECT' : 'INCORRECT',
-        composed,
-      ),
-    );
-  }, [makeEvent, pushKeystroke, targetRef]);
+  const handleCompositionEnd = useCallback(
+    (composedOverride?: string) => {
+      if (submittedRef.current || pausedRef.current) {
+        return;
+      }
+      const composed = composedOverride ?? compositionRef.current;
+      const composeStart = compositionStartRef.current;
+      compositionRef.current = "";
+      compositionStartRef.current = null;
+      patchSession({ composition: "" });
+      if (composed.length === 0) {
+        return;
+      }
+      positionRef.current += composed.length - 1;
+      const expected = targetRef.current[positionRef.current] ?? "";
+      positionRef.current += 1;
+      const isCorrect = composed === expected;
+      if (!isCorrect) {
+        errorsRef.current.add(positionRef.current - 1);
+      }
+      if (composeStart !== null) {
+        lastLatencyRef.current = composeStart;
+      }
+      pushKeystroke(
+        makeEvent(
+          expected,
+          composed,
+          composed,
+          composed,
+          isCorrect ? "CORRECT" : "INCORRECT",
+          composed,
+        ),
+      );
+    },
+    [makeEvent, pushKeystroke, targetRef],
+  );
 
   const computeInsecureKeys = useCallback((): string[] => {
     const keys = new Set<string>();
     for (const k of keystrokesRef.current) {
-      if (k.eventType === 'INCORRECT' && k.logicalKey !== '') {
+      if (k.eventType === "INCORRECT" && k.logicalKey !== "") {
         keys.add(k.logicalKey);
       }
     }
@@ -404,21 +462,26 @@ export function useTypingSession(): UseTypingSessionResult {
     if (sid === null || token === null || sessions.current === null) {
       return;
     }
-    patchSession({ phase: 'submitting', errorMessage: null });
+    patchSession({ phase: "submitting", errorMessage: null });
     try {
-      const result = await sessions.current?.submit(sid, keystrokesRef.current, token);
+      const result = await sessions.current?.submit(
+        sid,
+        keystrokesRef.current,
+        token,
+      );
       if (result === undefined) {
-        throw new Error('Sessão não inicializada');
+        throw new Error("Sessão não inicializada");
       }
       patchSession({
-        phase: 'completed',
-        state: 'COMPLETED',
+        phase: "completed",
+        state: "COMPLETED",
         result,
         lastInsecureKeys: computeInsecureKeys(),
       });
     } catch (err) {
       submittedRef.current = false;
-      patchSession({ phase: 'typing', errorMessage: toMessage(err) });
+      autoSubmitFailedRef.current = true;
+      patchSession({ phase: "typing", errorMessage: toMessage(err) });
     }
   }, [computeInsecureKeys, patchSession]);
 
@@ -429,7 +492,13 @@ export function useTypingSession(): UseTypingSessionResult {
         statsRef.current = stats;
         patchSession({ stats });
       }
-      if (!submittedRef.current && !pausedRef.current && targetRef.current.length > 0 && positionRef.current >= targetRef.current.length) {
+      if (
+        !submittedRef.current &&
+        !pausedRef.current &&
+        !autoSubmitFailedRef.current &&
+        targetRef.current.length > 0 &&
+        positionRef.current >= targetRef.current.length
+      ) {
         submittedRef.current = true;
         void doSubmit();
       }
@@ -440,14 +509,19 @@ export function useTypingSession(): UseTypingSessionResult {
   const pause = useCallback(async () => {
     const sid = sessionIdRef.current;
     const token = tokenRef.current;
-    if (sid === null || token === null || sessions.current === null || pausedRef.current) {
+    if (
+      sid === null ||
+      token === null ||
+      sessions.current === null ||
+      pausedRef.current
+    ) {
       return;
     }
     try {
       await sessions.current?.pause(sid, token);
       pausedRef.current = true;
       pauseStartRef.current = Date.now();
-      patchSession({ phase: 'paused', state: 'PAUSED' });
+      patchSession({ phase: "paused", state: "PAUSED" });
     } catch (err) {
       patchSession({ errorMessage: toMessage(err) });
     }
@@ -456,7 +530,12 @@ export function useTypingSession(): UseTypingSessionResult {
   const resume = useCallback(async () => {
     const sid = sessionIdRef.current;
     const token = tokenRef.current;
-    if (sid === null || token === null || sessions.current === null || !pausedRef.current) {
+    if (
+      sid === null ||
+      token === null ||
+      sessions.current === null ||
+      !pausedRef.current
+    ) {
       return;
     }
     try {
@@ -466,7 +545,7 @@ export function useTypingSession(): UseTypingSessionResult {
         pauseStartRef.current = null;
       }
       pausedRef.current = false;
-      patchSession({ phase: 'typing', state: 'RUNNING' });
+      patchSession({ phase: "typing", state: "RUNNING" });
     } catch (err) {
       patchSession({ errorMessage: toMessage(err) });
     }
@@ -481,7 +560,7 @@ export function useTypingSession(): UseTypingSessionResult {
     try {
       await sessions.current?.abandon(sid, token);
       submittedRef.current = true;
-      patchSession({ phase: 'idle', state: 'ABANDONED', sessionId: null });
+      patchSession({ phase: "idle", state: "ABANDONED", sessionId: null });
     } catch (err) {
       patchSession({ errorMessage: toMessage(err) });
     }
@@ -491,6 +570,7 @@ export function useTypingSession(): UseTypingSessionResult {
     if (sessionIdRef.current === null) {
       return;
     }
+    autoSubmitFailedRef.current = false;
     submittedRef.current = true;
     await doSubmit();
   }, [doSubmit]);
@@ -501,7 +581,7 @@ export function useTypingSession(): UseTypingSessionResult {
       breakTimerRef.current = null;
     }
     setSession({
-      phase: 'idle',
+      phase: "idle",
       lesson: null,
       sessionId: null,
       token: null,
@@ -510,7 +590,7 @@ export function useTypingSession(): UseTypingSessionResult {
       progress: 0,
       position: 0,
       errorIndexes: [],
-      composition: '',
+      composition: "",
       result: null,
       lastInsecureKeys: [],
       errorMessage: null,
@@ -534,9 +614,9 @@ export function useTypingSession(): UseTypingSessionResult {
 }
 
 function toMessage(err: unknown): string {
-  if (err instanceof Error && 'status' in err) {
+  if (err instanceof Error && "status" in err) {
     const apiError = err as ApiError;
     return apiError.message;
   }
-  return err instanceof Error ? err.message : 'Erro inesperado';
+  return err instanceof Error ? err.message : "Erro inesperado";
 }
