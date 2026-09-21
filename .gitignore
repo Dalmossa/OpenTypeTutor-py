@@ -27,4 +27,4 @@ Teclado.jpg
 # Python (desktop/)
 desktop/.venv/
 __pycache__/
-*.pyc
+*.pycimg/
