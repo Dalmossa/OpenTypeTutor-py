@@ -23,8 +23,9 @@ everything-claude-code/
 *.zip
 *.pdf
 Teclado.jpg
+img/
 
 # Python (desktop/)
 desktop/.venv/
 __pycache__/
-*.pycimg/
+*.pyc
