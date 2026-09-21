@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import Link from 'next/link';
 
 import { PhaseJourney } from './phase-journey';
+import { ThemeToggle } from '@/components/theme-toggle';
 
 // Landing Page (UI-UX-SRD §4, DESIGN.md tokens). Componente presentacional pf.
 // O roteamento / → /login,/register → /app é separado (§3.2); nenhuma RN é
@@ -91,6 +92,7 @@ export function LandingPage({ authenticated }: LandingPageProps): ReactNode {
             OpenType Tutor
           </Link>
           <nav className="flex items-center gap-3">
+            <ThemeToggle />
             <Link href="/login" className={buttonSecondary()}>
               Entrar
             </Link>

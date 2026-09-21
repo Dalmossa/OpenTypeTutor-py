@@ -18,20 +18,20 @@ export const MASTERY_LABELS: Record<MasteryState, string> = {
 };
 
 export const MASTERY_BADGE_CLASS: Record<MasteryState, string> = {
-  UNKNOWN: "bg-slate-100 text-slate-600",
-  LEARNING: "bg-amber-100 text-amber-700",
-  CONSOLIDATING: "bg-blue-100 text-blue-700",
-  MASTERED: "bg-green-100 text-green-700",
-  WEAK: "bg-red-100 text-red-700",
+  UNKNOWN: "bg-chip-neutral-bg text-chip-neutral-fg",
+  LEARNING: "bg-chip-warning-bg text-chip-warning-fg",
+  CONSOLIDATING: "bg-chip-info-bg text-chip-info-fg",
+  MASTERED: "bg-chip-success-bg text-chip-success-fg",
+  WEAK: "bg-chip-danger-bg text-chip-danger-fg",
 };
 
 // RN36 - faixas do MasteryProximityIndex devolvidas pelo backend (band pt-BR).
 // O chip aplica cor + rótulo juntos para nunca depender só da cor.
 export const BAND_CHIP_CLASS: Record<string, string> = {
-  longe: "bg-red-100 text-red-700",
-  "em progresso": "bg-amber-100 text-amber-700",
-  próximo: "bg-blue-100 text-blue-700",
-  "às vésperas": "bg-green-100 text-green-700",
+  longe: "bg-chip-danger-bg text-chip-danger-fg",
+  "em progresso": "bg-chip-warning-bg text-chip-warning-fg",
+  próximo: "bg-chip-info-bg text-chip-info-fg",
+  "às vésperas": "bg-chip-success-bg text-chip-success-fg",
 };
 
 // RN32 - estados de status por lição (reuso no dashboard de transições)

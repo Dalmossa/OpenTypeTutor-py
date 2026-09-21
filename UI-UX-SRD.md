@@ -248,8 +248,41 @@ O sistema visual **não é redefinido aqui** — é consumido de `DESIGN.md` (Li
 
 - **Canvas** `#010102` é a âncora; superfícies `surface-1…4` para cartões; hairline para divisões; **lavender `#5e6ad2` APENAS** para: marca, CTA primário, foco, ênfase de link.
 - **Tipografia**: Linear Display (display-md/lg/xl, tracking negativo), Linear Text (body), Mono só em código/screenshot.
-- **Nunca**: light mode, segundo acento cromático, gradients atmosféricos, cards spotlight, CTA pill.
+- **Nunca**: segundo acento cromático, gradients atmosféricos, cards spotlight, CTA pill.
 - O produto protagonista: screenshots do app real enquadrados em `product-screenshot-card`.
+
+### 8.1 Tema da Interface (Light/Dark Mode — ADR-021)
+
+A interface do **OpenType Tutor** deve oferecer suporte a **dois temas visuais**:
+
+- **Tema claro (Light Mode)**
+- **Tema escuro (Dark Mode)**
+
+O usuário deve poder alternar entre os dois temas por meio de um controle de alternância visível na interface, preferencialmente no cabeçalho ou na área de configurações.
+
+A implementação dos temas deve:
+
+1. Manter a mesma estrutura, funcionalidades e hierarquia de informações nos dois modos.
+2. Adaptar cores de fundo, superfícies, textos, bordas, ícones, botões e demais componentes para garantir boa legibilidade em cada tema.
+3. Manter contraste adequado entre texto e fundo nos dois modos.
+4. Evitar que informações, estados ou funcionalidades dependam exclusivamente de cores.
+5. Preservar a identidade visual do OpenType Tutor tanto no tema claro quanto no escuro.
+6. Permitir que a preferência de tema do usuário seja preservada entre acessos.
+7. O tema deve abranger toda a aplicação, incluindo:
+
+   - Landing Page;
+   - Login e cadastro;
+   - Dashboard;
+   - Lista de lições;
+   - Tela de prática;
+   - Tela de conclusão da lição;
+   - Progresso e métricas;
+   - Perfil e configurações;
+   - Componentes auxiliares, mensagens, modais, menus e estados de erro/sucesso.
+
+**Diretriz visual:** o tema claro e o tema escuro **não são duas interfaces diferentes**, e sim duas variações do mesmo sistema visual — identidade, componentes, espaçamentos, tipografia, hierarquia e experiência permanecem consistentes. O tema escuro **não** é a inversão simples do claro: cada tema tem paleta própria e coerente (ADR-021) mantendo contraste, legibilidade e hierarquia.
+
+> **Diretriz de implementação:** as duas aparências são **variações da mesma UI**, não duas UIs. Todos os componentes consomem tokens de design (`bg-canvas`, `bg-surface-1`, `text-ink`, `border-hairline`, `bg-primary`) que respondem ao tema ativo (`data-theme` no `<html>`); **nenhum hex codificado** em estilos de superfície/texto. O toggle (ADR-021) é implementado em `web/lib/theme.ts` + `ThemeToggle` no `AppNav` e na top-nav da Landing, com persistência em `localStorage('ott-theme')`.
 
 > Extensão mínima justificada (a formalizar em DESIGN.md): paleta semântica de status de lição (RN32) e de mastery usa verde/vermelho/âmbar **com rótulo sempre acoplado** (acessibilidade), mantendo escopo para a área do aluno, não para o landing.
 
@@ -353,14 +386,14 @@ Espelho de cada regra de domínio na camada web (ADR-018 — a UI **reflete**, n
 - [ ] Cartão de Progresso copiável ao fechar sessão (RN30); status por lição (RN32) com rótulo+cor+ícone.
 - [ ] Pacing (RN33) com overlay de pausa (web) e reset (RN31) com confirmação.
 - [ ] Todos os textos em pt-BR (RNF09); nenhuma RN reimplementada no cliente (ADR-018).
-- [ ] Acessibilidade: cor nunca sozinha; foco visível; reduce-motion respeitado; contraste AA.
+- [ ] Acessibilidade: cor nunca sozinha; foco visível; reduce-motion respeitado; contraste AA em ambos os temas.
+- [ ] Light/Dark Mode (ADR-021): toggle visível em toda a app (AppNav + top-nav da Landing), preferência persistida, toda a tela coberta por tokens.
 - [ ] `npx @google/design.md lint DESIGN.md` limpo e tokens consumidos (não duplicados).
 
 ---
 
 ## 16. Fora de Escopo (v1.0 da UI)
 
-- **Suporte à luz (light mode)** — não existe em DESIGN.md; não será criado.
 - Dashboard do desktop (`customtkinter`) — web-first (ADR-020 §3).
 - OAuth/login social e recuperação de senha (fora de escopo do produto — ADR-013 §13.4).
 - Interações avançadas de gamificação (placares, streak social) — **não** pertencem à identidade do produto (§1.5).

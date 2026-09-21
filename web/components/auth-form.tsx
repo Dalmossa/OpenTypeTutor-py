@@ -41,54 +41,54 @@ export function AuthForm({ mode }: { mode: Mode }): ReactNode {
     <form onSubmit={(e) => void handleSubmit(e)} className="w-full max-w-sm space-y-4">
       {mode === 'register' && (
         <label className="block">
-          <span className="text-sm font-medium text-slate-700">Nome</span>
+          <span className="text-sm font-medium text-ink-muted">Nome</span>
           <input
             name="name"
             type="text"
             required
             minLength={2}
-            className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
+            className="mt-1 w-full rounded-md border border-hairline-strong bg-surface-1 px-3 py-2"
           />
         </label>
       )}
       <label className="block">
-        <span className="text-sm font-medium text-slate-700">E-mail</span>
+        <span className="text-sm font-medium text-ink-muted">E-mail</span>
         <input
           name="email"
           type="email"
           required
-          className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
+          className="mt-1 w-full rounded-md border border-hairline-strong bg-surface-1 px-3 py-2"
         />
       </label>
       <label className="block">
-        <span className="text-sm font-medium text-slate-700">Senha</span>
+        <span className="text-sm font-medium text-ink-muted">Senha</span>
         <input
           name="password"
           type="password"
           required
           minLength={8}
-          className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
+          className="mt-1 w-full rounded-md border border-hairline-strong bg-surface-1 px-3 py-2"
         />
       </label>
 
-      {error !== null && <p className="text-sm text-red-600">{error}</p>}
+      {error !== null && <p className="text-sm text-danger">{error}</p>}
 
       <button
         type="submit"
         disabled={pending}
-        className="w-full rounded-md bg-slate-900 px-4 py-2 font-medium text-white disabled:opacity-60"
+        className="w-full rounded-md bg-primary px-4 py-2 font-medium text-white hover:bg-primary-hover disabled:opacity-60"
       >
         {pending ? 'Aguarde…' : mode === 'login' ? 'Entrar' : 'Criar conta'}
       </button>
 
-      <p className="text-center text-sm text-slate-600">
+      <p className="text-center text-sm text-ink-muted">
         {mode === 'login' ? (
           <>
-            Não tem conta? <Link href="/register" className="text-slate-900 underline">Cadastre-se</Link>
+            Não tem conta? <Link href="/register" className="text-primary underline">Cadastre-se</Link>
           </>
         ) : (
           <>
-            Já tem conta? <Link href="/login" className="text-slate-900 underline">Entrar</Link>
+            Já tem conta? <Link href="/login" className="text-primary underline">Entrar</Link>
           </>
         )}
       </p>

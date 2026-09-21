@@ -95,7 +95,7 @@ export function DateRangePicker({ value, onChange, maxDate = new Date() }: DateR
 
   return (
     <div className="relative" ref={popoverRef}>
-      <div className="flex rounded-md border border-slate-300 p-0.5 text-sm">
+      <div className="flex rounded-md border border-hairline-strong p-0.5 text-sm">
         {PRESETS.map((preset) => (
           <button
             key={preset.value}
@@ -104,8 +104,8 @@ export function DateRangePicker({ value, onChange, maxDate = new Date() }: DateR
             aria-pressed={isPresetActive(preset.value)}
             className={`rounded px-3 py-1 transition-colors ${
               isPresetActive(preset.value)
-                ? 'bg-slate-900 text-white'
-                : 'text-slate-600 hover:bg-slate-100'
+                ? 'bg-primary text-white'
+                : 'text-ink-muted hover:bg-surface-2'
             }`}
           >
             {preset.label}
@@ -115,13 +115,13 @@ export function DateRangePicker({ value, onChange, maxDate = new Date() }: DateR
 
       {isCustomOpen && (
         <div
-          className="absolute z-10 mt-2 w-64 rounded-lg border border-slate-200 bg-white p-3 shadow-lg"
+          className="absolute z-10 mt-2 w-64 rounded-lg border border-hairline bg-surface-1 p-3 shadow-lg"
           role="dialog"
           aria-label="Selecionar intervalo personalizado"
         >
           <form onSubmit={handleCustomSubmit} className="flex flex-col gap-3">
             <div>
-              <label htmlFor="custom-start" className="block text-xs font-medium text-slate-600 mb-1">
+              <label htmlFor="custom-start" className="block text-xs font-medium text-ink-muted mb-1">
                 Início
               </label>
               <input
@@ -130,11 +130,11 @@ export function DateRangePicker({ value, onChange, maxDate = new Date() }: DateR
                 value={customStart}
                 onChange={(e) => setCustomStart(e.target.value)}
                 max={formatDateInput(maxDate)}
-                className="w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                className="w-full rounded-md border border-hairline-strong bg-surface-1 px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
               />
             </div>
             <div>
-              <label htmlFor="custom-end" className="block text-xs font-medium text-slate-600 mb-1">
+              <label htmlFor="custom-end" className="block text-xs font-medium text-ink-muted mb-1">
                 Fim
               </label>
               <input
@@ -143,20 +143,20 @@ export function DateRangePicker({ value, onChange, maxDate = new Date() }: DateR
                 value={customEnd}
                 onChange={(e) => setCustomEnd(e.target.value)}
                 max={formatDateInput(maxDate)}
-                className="w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                className="w-full rounded-md border border-hairline-strong bg-surface-1 px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
               />
             </div>
             <div className="flex justify-end gap-2 pt-1">
               <button
                 type="button"
                 onClick={() => setIsCustomOpen(false)}
-                className="rounded-md border border-slate-300 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50"
+                className="rounded-md border border-hairline-strong px-3 py-1.5 text-sm text-ink-muted hover:bg-surface-2"
               >
                 Cancelar
               </button>
               <button
                 type="submit"
-                className="rounded-md bg-slate-900 px-3 py-1.5 text-sm text-white hover:bg-slate-700"
+                className="rounded-md bg-primary px-3 py-1.5 text-sm text-white hover:bg-primary-hover"
               >
                 Aplicar
               </button>

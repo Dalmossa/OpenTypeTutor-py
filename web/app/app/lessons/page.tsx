@@ -107,11 +107,11 @@ export default function LessonsPage(): ReactNode {
   );
 
   if (loading) {
-    return <p className="py-8 text-slate-500">Carregando…</p>;
+    return <p className="py-8 text-ink-subtle">Carregando…</p>;
   }
 
   if (user === null) {
-    return <p className="py-8 text-slate-500">Você não está autenticado.</p>;
+    return <p className="py-8 text-ink-subtle">Você não está autenticado.</p>;
   }
 
   const isInSession = session.phase !== 'idle';
@@ -178,19 +178,19 @@ export default function LessonsPage(): ReactNode {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Lições</h1>
         {nextLesson !== null && nextLesson.reason === 'complete' && (
-          <span className="rounded-full bg-green-100 px-3 py-1 text-sm font-medium text-green-700">
+          <span className="rounded-full bg-chip-success-bg px-3 py-1 text-sm font-medium text-chip-success-fg">
             Currículo concluído
           </span>
         )}
       </div>
-      <p className="mt-1 text-slate-500">
+      <p className="mt-1 text-ink-subtle">
         Siga as fases em ordem. As lições das fases seguintes são liberadas conforme você avança.
       </p>
       {fetchError !== null && (
-        <p className="mt-4 rounded-md bg-red-50 px-4 py-2 text-sm text-red-700">{fetchError}</p>
+        <p className="mt-4 rounded-md bg-danger-bg px-4 py-2 text-sm text-danger-fg">{fetchError}</p>
       )}
       {!fetchError && lessons.length === 0 && (
-        <p className="mt-4 text-slate-500">Nenhuma lição disponível.</p>
+        <p className="mt-4 text-ink-subtle">Nenhuma lição disponível.</p>
       )}
 
       <div className="mt-6 flex flex-col gap-8">
@@ -199,23 +199,23 @@ export default function LessonsPage(): ReactNode {
           const hasAnyUnlocked = group.lessons.some(isUnlocked);
           const groupIsLocked = !hasAnyUnlocked && nextLesson?.reason !== 'complete';
           return (
-            <section key={group.key} className="rounded-lg border border-slate-200 p-4">
+            <section key={group.key} className="rounded-lg border border-hairline bg-surface-1 p-4">
               <div className="flex items-start justify-between gap-3">
-                <h2 className="text-sm font-semibold text-slate-600">
+                <h2 className="text-sm font-semibold text-ink-muted">
                   {info?.label ?? 'Outras lições'}
                   {info !== null && <InfoTip text={info.description} />}
                 </h2>
-                <div className="flex items-center gap-2 text-xs text-slate-400">
+                <div className="flex items-center gap-2 text-xs text-ink-tertiary">
                   <span>{group.lessons.length} lições</span>
                   {groupIsLocked && (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-slate-500">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-chip-neutral-bg px-2 py-0.5 text-chip-neutral-fg">
                       <span aria-hidden="true">🔒</span> Bloqueada
                     </span>
                   )}
                 </div>
               </div>
               {groupIsLocked ? (
-                <p className="mt-3 text-sm text-slate-500">
+                <p className="mt-3 text-sm text-ink-subtle">
                   Conclua a fase anterior para liberar esta fase.
                 </p>
               ) : (
@@ -227,19 +227,19 @@ export default function LessonsPage(): ReactNode {
                       <li
                         key={lesson.id}
                         className={`flex items-center justify-between rounded-md px-3 py-2 ${
-                          next ? 'border border-indigo-200 bg-indigo-50' : 'bg-slate-50'
+                          next ? 'border border-primary bg-chip-info-bg' : 'bg-surface-2'
                         }`}
                       >
                         <div className="flex items-center gap-3">
                           {next && (
-                            <span className="rounded-full bg-indigo-600 px-2 py-0.5 text-xs font-medium text-white">
+                            <span className="rounded-full bg-primary px-2 py-0.5 text-xs font-medium text-white">
                               Próxima lição
                             </span>
                           )}
                           {!next && statusByLesson.get(lesson.id) !== 'NOT_STARTED' && (
                             <StatusBadge status={statusByLesson.get(lesson.id) ?? 'NOT_STARTED'} />
                           )}
-                          <p className={unlocked ? 'font-medium text-slate-800' : 'text-slate-400'}>
+                          <p className={unlocked ? 'font-medium text-ink' : 'text-ink-tertiary'}>
                             {lesson.title}
                           </p>
                         </div>
@@ -247,12 +247,12 @@ export default function LessonsPage(): ReactNode {
                           <button
                             type="button"
                             onClick={() => handleStart(lesson)}
-                            className="rounded-md bg-slate-900 px-4 py-1.5 text-sm text-white"
+                            className="rounded-md bg-primary px-4 py-1.5 text-sm text-white"
                           >
                             Praticar
                           </button>
                         ) : (
-                          <span className="rounded-md border border-slate-200 px-4 py-1.5 text-sm text-slate-400">
+                          <span className="rounded-md border border-hairline px-4 py-1.5 text-sm text-ink-tertiary">
                             Bloqueada
                           </span>
                         )}
@@ -359,9 +359,9 @@ function ErgonomicCheckModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+      <div className="w-full max-w-md rounded-xl bg-surface-1 p-6 shadow-xl">
         <h2 className="text-lg font-bold">Check-in ergonômico</h2>
-        <p className="mt-1 text-sm text-slate-500">
+        <p className="mt-1 text-sm text-ink-subtle">
           Antes da primeira sessão, ajuste sua postura:
         </p>
         <div className="mt-4 flex flex-col gap-2 text-sm">
@@ -383,8 +383,8 @@ function ErgonomicCheckModal({
           </label>
         </div>
 
-        <div className="mt-4 rounded-md bg-slate-50 p-3 text-sm">
-          <label className="flex items-center gap-2 font-medium text-slate-700">
+        <div className="mt-4 rounded-md bg-surface-2 p-3 text-sm">
+          <label className="flex items-center gap-2 font-medium text-ink-muted">
             <input
               type="checkbox"
               checked={discomfortReported}
@@ -393,7 +393,7 @@ function ErgonomicCheckModal({
             Estou sentindo dor, formigamento ou dormência
           </label>
           {discomfortReported && (
-            <p className="mt-2 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+            <p className="mt-2 rounded-md bg-danger-bg px-3 py-2 text-sm text-danger-fg">
               Interrompa imediatamente, faça uma pausa, alongue e hidrate-se. Só retome quando o desconforto passar.
             </p>
           )}
@@ -402,25 +402,25 @@ function ErgonomicCheckModal({
               value={discomfortDetail}
               onChange={(e) => setDiscomfortDetail(e.target.value)}
               placeholder="Opcional: ajustes ou observações sobre sua posição"
-              className="mt-2 w-full rounded-md border border-slate-300 px-2 py-1 text-sm focus:outline-none"
+              className="mt-2 w-full rounded-md border border-hairline-strong bg-surface-1 px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
               rows={2}
             />
           )}
         </div>
 
         {guidance !== null && (
-          <p className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-700">{guidance}</p>
+          <p className="mt-3 rounded-md bg-chip-warning-bg px-3 py-2 text-sm text-chip-warning-fg">{guidance}</p>
         )}
 
         <div className="mt-5 flex justify-end gap-3">
-          <button type="button" onClick={onCancel} className="rounded-md border border-slate-300 px-4 py-2 text-sm text-slate-700">
+          <button type="button" onClick={onCancel} className="rounded-md border border-hairline-strong px-4 py-2 text-sm text-ink-muted">
             Cancelar
           </button>
           <button
             type="button"
             onClick={() => void handleSubmit()}
             disabled={busy || discomfortReported || !seatHeightOk || !lumbarSupportOk || !monitorAtEyeLevel || !wristSupportOk}
-            className="rounded-md bg-slate-900 px-4 py-2 text-sm text-white disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-md bg-primary px-4 py-2 text-sm text-white hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-50"
           >
             {busy ? 'Verificando…' : 'Continuar'}
           </button>
@@ -439,10 +439,10 @@ const STATUS_BADGE_LABEL: Record<LessonPerformanceStatus, string> = {
 };
 
 const STATUS_BADGE_CLASS: Record<LessonPerformanceStatus, string> = {
-  NOT_STARTED: 'bg-slate-100 text-slate-500',
-  PRACTICING: 'bg-sky-100 text-sky-700',
-  REVIEW: 'bg-amber-100 text-amber-700',
-  MASTERED: 'bg-green-100 text-green-700',
+  NOT_STARTED: 'bg-chip-neutral-bg text-chip-neutral-fg',
+  PRACTICING: 'bg-chip-info-bg text-chip-info-fg',
+  REVIEW: 'bg-chip-warning-bg text-chip-warning-fg',
+  MASTERED: 'bg-chip-success-bg text-chip-success-fg',
 };
 
 function StatusBadge({ status }: { status: LessonPerformanceStatus }): ReactNode {
@@ -468,12 +468,12 @@ function BreakOverlay({ remainingMs }: { remainingMs: number }): ReactNode {
   return (
     <div className="flex flex-col items-center gap-4 py-16 text-center">
       <h2 className="text-2xl font-bold">Hora de descansar</h2>
-      <p className="max-w-md text-slate-600">
+      <p className="max-w-md text-ink-muted">
         Apoie as mãos no colo e alongue os braços e as pernas. A pausa é importante
         para prevenir desconforto — beba água e mexa o corpo.
       </p>
-      <p className="text-sm text-slate-400">A próxima lição estará disponível em</p>
-      <p className="font-mono text-4xl font-bold text-indigo-600">
+      <p className="text-sm text-ink-tertiary">A próxima lição estará disponível em</p>
+      <p className="font-mono text-4xl font-bold text-primary">
         {`${minutes}:${String(seconds).padStart(2, '0')}`}
       </p>
     </div>

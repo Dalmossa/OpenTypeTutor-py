@@ -130,8 +130,8 @@ export default function DashboardPage(): ReactNode {
     return () => { cancelled = true; };
   }, [loading, token, fetchDashboard]);
 
-  if (loading) return <p className="py-8 text-slate-500">Carregando…</p>;
-  if (user === null) return <p className="py-8 text-slate-500">Você não está autenticado.</p>;
+  if (loading) return <p className="py-8 text-ink-subtle">Carregando…</p>;
+  if (user === null) return <p className="py-8 text-ink-subtle">Você não está autenticado.</p>;
 
   // Dados para a janela atual
   const currentTrend = habits !== null ? sliceWindow(habits.trend, range) : [];
@@ -154,20 +154,20 @@ export default function DashboardPage(): ReactNode {
     <div className="flex flex-col gap-6 py-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold">Dashboard</h1>
-        <span className="text-sm text-slate-500">Layout ativo · {user.activeLayout}</span>
+        <span className="text-sm text-ink-subtle">Layout ativo · {user.activeLayout}</span>
       </div>
 
       {errorMessage !== null && (
-        <p className="rounded-md bg-red-50 px-4 py-2 text-sm text-red-700">{errorMessage}</p>
+        <p className="rounded-md bg-danger-bg px-4 py-2 text-sm text-danger-fg">{errorMessage}</p>
       )}
 
       {habits === null && mastery === null && proximity === null && errorMessage === null ? (
-        <p className="py-8 text-slate-500">Carregando…</p>
+        <p className="py-8 text-ink-subtle">Carregando…</p>
       ) : (
         <>
           <section aria-label="Indicadores (janela selecionada)">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-              <h2 className="text-sm font-semibold text-slate-500">Indicadores</h2>
+              <h2 className="text-sm font-semibold text-ink-subtle">Indicadores</h2>
               <DateRangePicker value={range} onChange={setRange} />
             </div>
             <KpiCards kpis={enrichedKpis} activeDays={enrichedKpis.daysActive} />
@@ -175,13 +175,13 @@ export default function DashboardPage(): ReactNode {
 
           {currentStreak > 0 && (
             <section aria-label="Streaks">
-              <h2 className="mb-3 text-sm font-semibold text-slate-500">Streaks</h2>
+              <h2 className="mb-3 text-sm font-semibold text-ink-subtle">Streaks</h2>
               <StreakCards currentStreak={currentStreak} longestStreak={longestStreak} />
             </section>
           )}
 
           <section aria-label="Evolução">
-            <h2 className="mb-3 text-sm font-semibold text-slate-500">Evolução diária (RN35)</h2>
+            <h2 className="mb-3 text-sm font-semibold text-ink-subtle">Evolução diária (RN35)</h2>
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
               <TrendChart 
                 title="PPM (palavras por minuto)" 
@@ -208,17 +208,17 @@ export default function DashboardPage(): ReactNode {
           </section>
 
           <section aria-label="Mapa de calor de teclas">
-            <h2 className="mb-3 text-sm font-semibold text-slate-500">
+            <h2 className="mb-3 text-sm font-semibold text-ink-subtle">
               Intensidade de prática por tecla (RN34 · janela 7d)
             </h2>
             {habits !== null && habits.heatmap.length > 0 ? (
               <HeatmapKeyboard layout={user.activeLayout} heatmap={habits.heatmap} />
             ) : (
-              <p className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
+              <p className="rounded-lg border border-hairline bg-surface-1 p-4 text-sm text-ink-subtle">
                 Ainda não há prática registrada na janela de 7 dias.
                 <button 
                   onClick={() => setRange(7)}
-                  className="ml-2 text-indigo-600 hover:underline text-sm"
+                  className="ml-2 text-primary hover:underline text-sm"
                 >
                   Ver 7 dias
                 </button>
@@ -227,22 +227,22 @@ export default function DashboardPage(): ReactNode {
           </section>
 
           <section aria-label="Proximidade à maestria">
-            <h2 className="mb-3 text-sm font-semibold text-slate-500">Proximidade à maestria (RN36)</h2>
+            <h2 className="mb-3 text-sm font-semibold text-ink-subtle">Proximidade à maestria (RN36)</h2>
             <ProximityList keys={proximity?.keys ?? []} />
           </section>
 
           <section aria-label="Distribuição de estados">
-            <h2 className="mb-3 text-sm font-semibold text-slate-500">Distribuição de estados</h2>
+            <h2 className="mb-3 text-sm font-semibold text-ink-subtle">Distribuição de estados</h2>
             <StateDistribution counts={mastery?.countsByState ?? EMPTY_COUNTS} />
           </section>
 
           <section aria-label="Transições de maestria">
-            <h2 className="mb-3 text-sm font-semibold text-slate-500">Linha do tempo de maestria (RN36)</h2>
+            <h2 className="mb-3 text-sm font-semibold text-ink-subtle">Linha do tempo de maestria (RN36)</h2>
             <TransitionsTimeline transitions={mastery?.transitions ?? []} />
           </section>
 
           {habits !== null && habits.trend.length > 0 && (
-            <p className="text-xs text-slate-400">
+            <p className="text-xs text-ink-tertiary">
               Último dia com prática: {formatDateKey(habits.trend[habits.trend.length - 1].date)}
             </p>
           )}

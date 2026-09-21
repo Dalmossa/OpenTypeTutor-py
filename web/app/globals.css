@@ -16,8 +16,62 @@
   --color-primary-hover: #828fff;
   --color-primary-focus: #5e69d1;
   --color-success: #27a644;
+  --color-danger: #e5484d;
+  --color-danger-bg: #3a1d1d;
+  --color-danger-fg: #f2a0a0;
+  --color-warning: #f2c94c;
+  --color-chip-neutral-bg: #1f2024;
+  --color-chip-neutral-fg: #c9ced6;
+  --color-chip-warning-bg: #3a2f16;
+  --color-chip-warning-fg: #f2c94c;
+  --color-chip-info-bg: #1d2740;
+  --color-chip-info-fg: #9db4f3;
+  --color-chip-success-bg: #10291d;
+  --color-chip-success-fg: #52c98a;
+  --color-chip-danger-bg: #3a1d1d;
+  --color-chip-danger-fg: #f2a0a0;
   --font-display: "SF Pro Display", -apple-system, system-ui, "Segoe UI", Roboto, sans-serif;
   --font-body: -apple-system, system-ui, "Segoe UI", Roboto, sans-serif;
+}
+
+/* Tema escuro (default — identidade OpenType, canvas quase preto). ADR-021. */
+:root {
+  color-scheme: dark;
+}
+
+/* Tema claro — variação do mesmo sistema, não inversão (ADR-021). paleta própria,
+   primary inalterada (identidade lavanda), hover mais escuro para contraste AA. */
+[data-theme="light"] {
+  color-scheme: light;
+  --color-canvas: #f6f7f8;
+  --color-surface-1: #ffffff;
+  --color-surface-2: #eef0f2;
+  --color-surface-3: #e7e9ec;
+  --color-surface-4: #dfe2e6;
+  --color-hairline: #d9dce0;
+  --color-hairline-strong: #b8bec6;
+  --color-ink: #181a1d;
+  --color-ink-muted: #454b52;
+  --color-ink-subtle: #6b7178;
+  --color-ink-tertiary: #9aa0a8;
+  --color-primary: #5e6ad2;
+  --color-primary-hover: #4c57c8;
+  --color-primary-focus: #6a75db;
+  --color-success: #1c8346;
+  --color-danger: #c73a3d;
+  --color-danger-bg: #fdecec;
+  --color-danger-fg: #b23a3a;
+  --color-warning: #9a6b0d;
+  --color-chip-neutral-bg: #eceef0;
+  --color-chip-neutral-fg: #4a5057;
+  --color-chip-warning-bg: #fbf3d0;
+  --color-chip-warning-fg: #8a650d;
+  --color-chip-info-bg: #e2e9fd;
+  --color-chip-info-fg: #3b56c9;
+  --color-chip-success-bg: #dbf3e4;
+  --color-chip-success-fg: #177a44;
+  --color-chip-danger-bg: #fdecec;
+  --color-chip-danger-fg: #b23a3a;
 }
 
 @keyframes ott-key-hint {

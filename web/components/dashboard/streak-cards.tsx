@@ -13,24 +13,24 @@ function StreakCard({ label, value, maxValue, hint }: StreakCardProps): ReactNod
   const percent = maxValue ? Math.round((value / maxValue) * 100) : 0;
   
   return (
-    <div className="rounded-lg bg-slate-900 px-4 py-3">
+    <div className="rounded-lg bg-surface-1 px-4 py-3">
       <div className="flex items-center justify-between">
-        <p className="text-xs text-slate-400">
+        <p className="text-xs text-ink-subtle">
           {label}
-          {hint !== undefined && <span className="ml-1 text-slate-500">({hint})</span>}
+          {hint !== undefined && <span className="ml-1 text-ink-tertiary">({hint})</span>}
         </p>
       </div>
-      <p className="mt-1 text-2xl font-semibold text-slate-100">{value}</p>
+      <p className="mt-1 text-2xl font-semibold text-ink">{value}</p>
       {maxValue && maxValue > 0 && (
-        <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-700">
+        <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-hairline">
           <div
-            className="h-full rounded-full bg-indigo-500"
+            className="h-full rounded-full bg-primary"
             style={{ width: `${Math.min(percent, 100)}%` }}
           />
         </div>
       )}
       {maxValue && maxValue > 0 && (
-        <p className="mt-1 text-xs text-slate-500">Recorde: {maxValue} dias</p>
+        <p className="mt-1 text-xs text-ink-tertiary">Recorde: {maxValue} dias</p>
       )}
     </div>
   );

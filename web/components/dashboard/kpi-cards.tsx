@@ -12,7 +12,7 @@ interface KpiCardsProps {
 
 function formatDelta(delta: number, deltaPercent: number | null, metricType: 'wpm' | 'accuracy' | 'latency' | 'count'): ReactNode {
   if (deltaPercent === null) {
-    return <span className="text-xs text-slate-400">sem dados anteriores</span>;
+    return <span className="text-xs text-ink-subtle">sem dados anteriores</span>;
   }
   const isPositive = delta > 0;
   const isNegative = delta < 0;
@@ -31,7 +31,7 @@ function formatDelta(delta: number, deltaPercent: number | null, metricType: 'wp
   }
 
   return (
-    <span className={`text-xs font-medium ${isPositive ? 'text-green-600' : isNegative ? 'text-red-600' : 'text-slate-500'}`}>
+    <span className={`text-xs font-medium ${isPositive ? 'text-success' : isNegative ? 'text-danger' : 'text-ink-subtle'}`}>
       {isPositive ? '▲' : isNegative ? '▼' : '●'} {deltaText} ({absPercent.toFixed(1)}%)
     </span>
   );
@@ -49,19 +49,19 @@ function KpiStat({
   comparison?: PeriodComparison<number>;
 }): ReactNode {
   return (
-    <div className="rounded-lg bg-slate-900 px-4 py-3">
+    <div className="rounded-lg bg-surface-1 px-4 py-3">
       <div className="flex items-center justify-between">
-        <p className="text-xs text-slate-400">
+        <p className="text-xs text-ink-subtle">
           {label}
-          {hint !== undefined && <span className="ml-1 text-slate-500">({hint})</span>}
+          {hint !== undefined && <span className="ml-1 text-ink-tertiary">({hint})</span>}
         </p>
         {comparison && (
-          <span className="text-xs text-slate-500 whitespace-nowrap">
+          <span className="text-xs text-ink-tertiary whitespace-nowrap">
             vs período anterior
           </span>
         )}
       </div>
-      <p className="mt-1 text-2xl font-semibold text-slate-100">{value}</p>
+      <p className="mt-1 text-2xl font-semibold text-ink">{value}</p>
       {comparison && (
         <p className="mt-1 flex items-center gap-1">
           {formatDelta(comparison.delta, comparison.deltaPercent, 'wpm')}

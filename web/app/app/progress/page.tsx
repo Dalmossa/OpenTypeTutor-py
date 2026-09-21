@@ -19,11 +19,11 @@ const MASTERY_LABELS: Record<KeyPerformanceDTO['masteryState'], string> = {
 };
 
 const MASTERY_STYLES: Record<KeyPerformanceDTO['masteryState'], string> = {
-  UNKNOWN: 'bg-slate-100 text-slate-600',
-  LEARNING: 'bg-amber-100 text-amber-700',
-  CONSOLIDATING: 'bg-blue-100 text-blue-700',
-  MASTERED: 'bg-green-100 text-green-700',
-  WEAK: 'bg-red-100 text-red-700',
+  UNKNOWN: 'bg-chip-neutral-bg text-chip-neutral-fg',
+  LEARNING: 'bg-chip-warning-bg text-chip-warning-fg',
+  CONSOLIDATING: 'bg-chip-info-bg text-chip-info-fg',
+  MASTERED: 'bg-chip-success-bg text-chip-success-fg',
+  WEAK: 'bg-chip-danger-bg text-chip-danger-fg',
 };
 
 export default function ProgressPage(): ReactNode {
@@ -100,11 +100,11 @@ export default function ProgressPage(): ReactNode {
   }, []);
 
   if (loading) {
-    return <p className="py-8 text-slate-500">Carregando…</p>;
+    return <p className="py-8 text-ink-subtle">Carregando…</p>;
   }
 
   if (user === null) {
-    return <p className="py-8 text-slate-500">Você não está autenticado.</p>;
+    return <p className="py-8 text-ink-subtle">Você não está autenticado.</p>;
   }
 
   const completion = Math.round((progress?.levelCompletionRate ?? 0) * 100);
@@ -113,7 +113,7 @@ export default function ProgressPage(): ReactNode {
     <div className="flex flex-col gap-6 py-6">
       <h1 className="text-2xl font-bold">Progresso</h1>
       {errorMessage !== null && (
-        <p className="rounded-md bg-red-50 px-4 py-2 text-sm text-red-700">{errorMessage}</p>
+        <p className="rounded-md bg-danger-bg px-4 py-2 text-sm text-danger-fg">{errorMessage}</p>
       )}
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -124,40 +124,40 @@ export default function ProgressPage(): ReactNode {
       </div>
 
       {progress?.currentLesson !== null && progress?.currentLesson !== undefined && (
-        <section className="rounded-lg border border-slate-200 p-4">
-          <h2 className="text-sm font-semibold text-slate-500">Próxima lição</h2>
+        <section className="rounded-lg border border-hairline bg-surface-1 p-4">
+          <h2 className="text-sm font-semibold text-ink-subtle">Próxima lição</h2>
           <div className="mt-2 flex items-center justify-between">
             <div>
-              <p className="font-medium text-slate-800">{progress?.currentLesson.title}</p>
-              <p className="text-sm text-slate-500">
+              <p className="font-medium text-ink">{progress?.currentLesson.title}</p>
+              <p className="text-sm text-ink-subtle">
                 Nível {progress?.currentLesson.level} · {progress?.currentLesson.type.toLowerCase()} · Fase {progress?.currentLesson.pedagogicalPhase ?? '—'}
               </p>
             </div>
-            <Link href="/app/lessons" className="rounded-md bg-slate-900 px-4 py-2 text-sm text-white">
+            <Link href="/app/lessons" className="rounded-md bg-primary px-4 py-2 text-sm text-white">
               Praticar
             </Link>
           </div>
         </section>
       )}
 
-      <section className="rounded-lg border border-slate-200 p-4">
+      <section className="rounded-lg border border-hairline bg-surface-1 p-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-slate-500">
+          <h2 className="text-sm font-semibold text-ink-subtle">
             Desempenho por tecla (RN25)
             <InfoTip text="Como você se sai em cada tecla do seu teclado, com base nos seus treinos." />
           </h2>
-          <span className="text-xs text-slate-400">{keys.length} teclas · {user.activeLayout}</span>
+          <span className="text-xs text-ink-tertiary">{keys.length} teclas · {user.activeLayout}</span>
         </div>
         {keys.length === 0 ? (
-          <p className="mt-3 text-sm text-slate-500">
+          <p className="mt-3 text-sm text-ink-subtle">
             Ainda não há dados de teclas. Complete uma sessão para gerar métricas por tecla.
           </p>
         ) : (
           <ul className="mt-3 flex flex-col gap-2">
             {keys.map((key) => (
-              <li key={key.id} className="flex items-center justify-between rounded-md bg-slate-50 px-3 py-2">
+              <li key={key.id} className="flex items-center justify-between rounded-md bg-surface-2 px-3 py-2">
                 <div className="flex items-center gap-3">
-                  <span className="w-8 rounded-md bg-slate-900 py-1 text-center font-mono text-sm text-white">
+                  <span className="w-8 rounded-md bg-surface-3 py-1 text-center font-mono text-sm text-ink">
                     {key.logicalKey === ' ' ? '␣' : key.logicalKey}
                   </span>
                   <span className="relative inline-flex items-center">
@@ -167,7 +167,7 @@ export default function ProgressPage(): ReactNode {
                     <InfoTip text={MASTERY_HELP[key.masteryState]} />
                   </span>
                 </div>
-                <div className="flex flex-wrap gap-4 text-xs text-slate-500">
+                <div className="flex flex-wrap gap-4 text-xs text-ink-subtle">
                   <KeyStat label="Precisão" value={`${Math.round(key.keyAccuracy * 100)}%`} />
                   <KeyStat label="Latência" value={`${Math.round(key.averageLatencyMs)} ms`} />
                   <KeyStat label="Tentativas" value={String(key.attempts)} />
@@ -179,15 +179,15 @@ export default function ProgressPage(): ReactNode {
         )}
       </section>
 
-      <section className="rounded-lg border border-red-200 bg-red-50 p-4">
-        <h2 className="text-sm font-semibold text-red-800">Recomeçar do zero</h2>
-        <p className="mt-1 text-sm text-red-700">
+      <section className="rounded-lg border border-danger bg-danger-bg p-4">
+        <h2 className="text-sm font-semibold text-danger-fg">Recomeçar do zero</h2>
+        <p className="mt-1 text-sm text-danger-fg">
           Apaga todas as suas sessões, o desempenho por tecla, o cartão de progresso e o nível atual, voltando ao
           nível 1. Sua conta e seu layout de teclado são mantidos.
         </p>
         {showResetConfirm ? (
           <div className="mt-3 flex flex-col gap-2">
-            <p className="text-sm font-medium text-red-900">Tem certeza? Esta ação não pode ser desfeita.</p>
+            <p className="text-sm font-medium text-danger-fg">Tem certeza? Esta ação não pode ser desfeita.</p>
             <div className="flex flex-wrap gap-2">
               <button
                 type="button"
@@ -195,7 +195,7 @@ export default function ProgressPage(): ReactNode {
                   void handleReset();
                 }}
                 disabled={resetting}
-                className="rounded-md bg-red-600 px-4 py-2 text-sm text-white disabled:opacity-50"
+                className="rounded-md bg-danger px-4 py-2 text-sm text-white hover:opacity-90 disabled:opacity-50"
               >
                 {resetting ? 'Limpando…' : 'Sim, limpar meu progresso'}
               </button>
@@ -205,7 +205,7 @@ export default function ProgressPage(): ReactNode {
                   setShowResetConfirm(false);
                 }}
                 disabled={resetting}
-                className="rounded-md border border-red-300 px-4 py-2 text-sm text-red-700 disabled:opacity-50"
+                className="rounded-md border border-danger px-4 py-2 text-sm text-danger-fg disabled:opacity-50"
               >
                 Cancelar
               </button>
@@ -217,7 +217,7 @@ export default function ProgressPage(): ReactNode {
             onClick={() => {
               setShowResetConfirm(true);
             }}
-            className="mt-3 rounded-md border border-red-300 px-4 py-2 text-sm text-red-700"
+            className="mt-3 rounded-md border border-danger px-4 py-2 text-sm text-danger-fg"
           >
             Recomeçar do zero
           </button>
@@ -240,12 +240,12 @@ function KeyStat({ label, value }: { label: string; value: string }): ReactNode 
 function SummaryCard({ label, value }: { label: string; value: string }): ReactNode {
   const help = getMetricHelp(label);
   return (
-    <div className="rounded-lg bg-slate-900 px-4 py-3">
-      <p className="text-xs text-slate-400">
+    <div className="rounded-lg bg-surface-1 px-4 py-3">
+      <p className="text-xs text-ink-subtle">
         {label}
         {help !== undefined && <InfoTip text={help} />}
       </p>
-      <p className="text-2xl font-semibold text-slate-100">{value}</p>
+      <p className="text-2xl font-semibold text-ink">{value}</p>
     </div>
   );
 }

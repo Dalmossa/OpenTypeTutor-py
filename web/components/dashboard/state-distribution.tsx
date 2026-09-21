@@ -17,10 +17,10 @@ export function StateDistribution({ counts }: StateDistributionProps): ReactNode
   const total = STATE_ORDER.reduce((sum, state) => sum + counts[state], 0);
 
   return (
-    <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-      <h3 className="text-sm font-semibold text-slate-600">Distribuição por estado de maestria</h3>
+    <div className="rounded-lg border border-hairline bg-surface-1 p-4">
+      <h3 className="text-sm font-semibold text-ink-muted">Distribuição por estado de maestria</h3>
       {total === 0 ? (
-        <p className="mt-3 text-sm text-slate-500">Nenhuma tecla com métricas ainda.</p>
+        <p className="mt-3 text-sm text-ink-subtle">Nenhuma tecla com métricas ainda.</p>
       ) : (
         <ul className="mt-3 flex flex-col gap-2">
           {STATE_ORDER.map((state) => {
@@ -31,13 +31,13 @@ export function StateDistribution({ counts }: StateDistributionProps): ReactNode
                 <span className={`w-28 rounded-full px-2 py-0.5 text-center text-xs font-medium ${MASTERY_BADGE_CLASS[state]}`}>
                   {MASTERY_LABELS[state]}
                 </span>
-                <div className="h-2 flex-1 overflow-hidden rounded-full bg-slate-200">
+                <div className="h-2 flex-1 overflow-hidden rounded-full bg-hairline">
                   <div
-                    className="h-full rounded-full"
+                    className="h-full rounded-full bg-primary"
                     style={{ width: `${percent}%` }}
                   />
                 </div>
-                <span className="w-14 text-right font-mono text-xs text-slate-600">
+                <span className="w-14 text-right font-mono text-xs text-ink-muted">
                   {value} · {percent}%
                 </span>
               </li>
