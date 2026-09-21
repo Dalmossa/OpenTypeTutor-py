@@ -185,6 +185,7 @@ function buildTestApp(overrides: Partial<AppDependencies> = {}): TestContext {
       createdAt: "2026-01-01T00:00:00.000Z",
       activeLayout: "ABNT2",
       currentLevel: 1,
+      timezone: "America/Sao_Paulo",
     }),
   );
   const updateLayout = vi.fn((): Promise<UpdateUserLayoutResponseDTO> =>

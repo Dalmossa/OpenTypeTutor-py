@@ -1,24 +1,33 @@
-import type { IUserRepository } from '../../domain/repositories/IUserRepository.js';
-import type { IUserProfileRepository } from '../../domain/repositories/IUserProfileRepository.js';
-import { SessionId } from '../../domain/value-objects/SessionId.js';
-import { ProfileNotOwnedError, UserNotFoundError } from '../../domain/errors/DomainError.js';
-import type { GetUserResponseDTO } from '../dtos/UserDTOs.js';
+import type { IUserRepository } from "../../domain/repositories/IUserRepository.js";
+import type { IUserProfileRepository } from "../../domain/repositories/IUserProfileRepository.js";
+import { SessionId } from "../../domain/value-objects/SessionId.js";
+import { DEFAULT_TIMEZONE } from "../../domain/value-objects/Timezone.js";
+import {
+  ProfileNotOwnedError,
+  UserNotFoundError,
+} from "../../domain/errors/DomainError.js";
+import type { GetUserResponseDTO } from "../dtos/UserDTOs.js";
 
 export class GetUser {
   constructor(
     private readonly userRepository: IUserRepository,
-    private readonly profileRepository: IUserProfileRepository
+    private readonly profileRepository: IUserProfileRepository,
   ) {}
 
-  async execute(authUserId: string, userId: string): Promise<GetUserResponseDTO> {
+  async execute(
+    authUserId: string,
+    userId: string,
+  ): Promise<GetUserResponseDTO> {
     if (!SessionId.create(authUserId).equals(SessionId.create(userId))) {
-      throw new ProfileNotOwnedError('Perfil não pertence ao usuário autenticado');
+      throw new ProfileNotOwnedError(
+        "Perfil não pertence ao usuário autenticado",
+      );
     }
 
     const targetId = SessionId.create(userId);
     const user = await this.userRepository.findById(targetId);
     if (!user) {
-      throw new UserNotFoundError('Usuário não encontrado');
+      throw new UserNotFoundError("Usuário não encontrado");
     }
 
     const profile = await this.profileRepository.findByUserId(targetId);
@@ -28,8 +37,9 @@ export class GetUser {
       name: user.name,
       email: user.email.value,
       createdAt: user.createdAt.toISOString(),
-      activeLayout: profile?.activeLayout.value ?? 'ABNT2',
+      activeLayout: profile?.activeLayout.value ?? "ABNT2",
       currentLevel: profile?.currentLevel ?? 1,
+      timezone: profile?.timezone ?? DEFAULT_TIMEZONE,
     };
   }
 }

@@ -1,15 +1,15 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import type { ReactNode } from 'react';
-import Link from 'next/link';
+import { useEffect, useState } from "react";
+import type { ReactNode } from "react";
+import Link from "next/link";
 
-import { useAuth } from '@/components/auth-provider';
-import InfoTip from '@/components/info-tip';
-import { createControllers } from '@/controllers';
-import { phaseInfo } from '@/lib/pedagogical';
-import { KEY_LAYOUTS, type KeyboardLayoutName } from '@/lib/virtual-keyboard';
-import type { GetUserProgressDTO } from '@/models/progress';
+import { useAuth } from "@/components/auth-provider";
+import InfoTip from "@/components/info-tip";
+import { createControllers } from "@/controllers";
+import { phaseInfo } from "@/lib/pedagogical";
+import { KEY_LAYOUTS, type KeyboardLayoutName } from "@/lib/virtual-keyboard";
+import type { GetUserProgressDTO } from "@/models/progress";
 
 const LAYOUT_OPTIONS: ReadonlyArray<{
   value: KeyboardLayoutName;
@@ -17,14 +17,15 @@ const LAYOUT_OPTIONS: ReadonlyArray<{
   caption: string;
 }> = [
   {
-    value: 'ABNT2',
-    label: 'ABNT2',
-    caption: 'Tecla ç dedicada à direita do L, teclas mortas ´ e ~ para acentos.',
+    value: "ABNT2",
+    label: "ABNT2",
+    caption:
+      "Tecla ç dedicada à direita do L, teclas mortas ´ e ~ para acentos.",
   },
   {
-    value: 'US-INTERNATIONAL',
-    label: 'US-International',
-    caption: 'Acentos por teclas mortas (´ ` ^ ~), sem tecla ç dedicada.',
+    value: "US-INTERNATIONAL",
+    label: "US-International",
+    caption: "Acentos por teclas mortas (´ ` ^ ~), sem tecla ç dedicada.",
   },
 ];
 
@@ -40,10 +41,10 @@ function LayoutPreview({ layout }: { layout: KeyboardLayoutName }): ReactNode {
             <span
               key={key}
               className={`flex h-7 items-center justify-center rounded border border-hairline bg-surface-2 text-[10px] leading-none text-ink-muted ${
-                key === 'Space' ? 'min-w-16' : 'min-w-7 px-1'
+                key === "Space" ? "min-w-16" : "min-w-7 px-1"
               }`}
             >
-              {key === 'Space' ? '' : key}
+              {key === "Space" ? "" : key}
             </span>
           ))}
         </div>
@@ -86,18 +87,23 @@ export default function ProfilePage(): ReactNode {
     return (
       <div className="flex flex-col gap-4 py-16 text-center">
         <p className="text-ink-muted">Você não está autenticado.</p>
-        <Link href="/login" className="mx-auto rounded-md bg-primary px-4 py-2 text-white">
+        <Link
+          href="/login"
+          className="mx-auto rounded-md bg-primary px-4 py-2 text-white"
+        >
           Entrar
         </Link>
       </div>
     );
   }
 
-  const currentLayout = (user.activeLayout ?? 'ABNT2') as KeyboardLayoutName;
+  const currentLayout = (user.activeLayout ?? "ABNT2") as KeyboardLayoutName;
   const currentPhase = progress?.currentLesson?.pedagogicalPhase ?? null;
   const phase = phaseInfo(currentPhase);
 
-  const handleLayoutChange = async (layout: KeyboardLayoutName): Promise<void> => {
+  const handleLayoutChange = async (
+    layout: KeyboardLayoutName,
+  ): Promise<void> => {
     if (layout === user.activeLayout) {
       return;
     }
@@ -106,7 +112,7 @@ export default function ProfilePage(): ReactNode {
     try {
       await updateLayout(layout);
     } catch {
-      setErrorMessage('Não foi possível alterar o layout. Tente novamente.');
+      setErrorMessage("Não foi possível alterar o layout. Tente novamente.");
     } finally {
       setSaving(false);
     }
@@ -130,6 +136,13 @@ export default function ProfilePage(): ReactNode {
           <div className="flex justify-between gap-4">
             <dt className="text-ink-subtle">Nível atual</dt>
             <dd className="text-ink">{user.currentLevel}</dd>
+          </div>
+          <div className="flex justify-between gap-4">
+            <dt className="text-ink-subtle">
+              Fuso horário
+              <InfoTip text="RN37 — streaks, dias ativos e estatísticas de hoje usam o fuso do perfil (padrão America/Sao_Paulo)." />
+            </dt>
+            <dd className="text-ink">{user.timezone ?? "America/Sao_Paulo"}</dd>
           </div>
           {phase !== null && (
             <div className="flex justify-between gap-4">
@@ -163,8 +176,8 @@ export default function ProfilePage(): ReactNode {
                 disabled={saving}
                 className={`flex-1 rounded-md border px-4 py-2 text-left text-sm font-medium ${
                   selected
-                    ? 'border-primary bg-chip-info-bg text-ink'
-                    : 'border-hairline-strong text-ink-muted hover:bg-surface-2'
+                    ? "border-primary bg-chip-info-bg text-ink"
+                    : "border-hairline-strong text-ink-muted hover:bg-surface-2"
                 }`}
               >
                 {option.label}
@@ -176,7 +189,9 @@ export default function ProfilePage(): ReactNode {
           })}
         </div>
         {saving && <p className="mt-3 text-sm text-ink-subtle">Salvando…</p>}
-        {errorMessage !== null && <p className="mt-3 text-sm text-danger-fg">{errorMessage}</p>}
+        {errorMessage !== null && (
+          <p className="mt-3 text-sm text-danger-fg">{errorMessage}</p>
+        )}
         <div className="mt-4">
           <p className="text-xs text-ink-subtle">Prévia</p>
           <div className="mt-2">

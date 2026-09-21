@@ -34,6 +34,7 @@ export interface GetUserResponseDTO {
   createdAt: string;
   activeLayout: string;
   currentLevel: number;
+  timezone: string; // IANA (RN37)
 }
 
 export interface UpdateUserLayoutResponseDTO {
