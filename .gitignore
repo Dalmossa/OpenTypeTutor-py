@@ -18,6 +18,7 @@ graphify-out/
 .husky/_
 everything-claude-code/
 .firecrawl/
+.opencode/user.db*
 
 # Material de referência (não faz parte do código)
 *.zip
