@@ -1,4 +1,10 @@
 import type { MasteryState } from "@/models/progress";
+import type {
+  DashboardTrendPoint,
+  DashboardKPI,
+  DashboardKPIWithComparison,
+  PeriodComparison,
+} from "@/models/dashboard";
 
 // Metadados visuais do dashboard (RN32/RN36) — rótulo pt-BR sempre junto da cor
 // (acessibilidade: cor nunca sozinha, ADR-020). Nenhuma RN aqui.
@@ -56,4 +62,88 @@ export function formatWpm(wpm: number): string {
 export function formatDateKey(dateKey: string): string {
   const [year = "—", month = "—", day = "—"] = dateKey.split("-");
   return `${day}/${month}/${year}`;
+}
+
+// Helpers para comparação período-a-período
+function avg(arr: number[]): number {
+  if (arr.length === 0) return 0;
+  return arr.reduce((a, b) => a + b, 0) / arr.length;
+}
+
+function computeComparison<T extends number>(
+  current: number,
+  previous: number | null,
+): PeriodComparison<number> {
+  if (previous === null || previous === 0) {
+    return { current, previous: null, delta: 0, deltaPercent: null };
+  }
+  const delta = current - previous;
+  const deltaPercent = (delta / previous) * 100;
+  return { current, previous, delta, deltaPercent };
+}
+
+export function enrichKPIsWithComparison(
+  kpis: DashboardKPI,
+  trend: DashboardTrendPoint[],
+  windowDays: number,
+): DashboardKPIWithComparison {
+  if (trend.length === 0) {
+    return kpis;
+  }
+
+  const sortedTrend = [...trend].sort((a, b) => a.date.localeCompare(b.date));
+  const currentWindow = sortedTrend.slice(-windowDays);
+  const previousWindow = sortedTrend.slice(-windowDays * 2, -windowDays);
+
+  const currentValues = {
+    netWpm: avg(currentWindow.map((p) => p.netWpm)),
+    accuracy: avg(currentWindow.map((p) => p.accuracy)),
+    averageLatencyMs: avg(currentWindow.map((p) => p.averageLatencyMs)),
+    sessionsCompleted: currentWindow.reduce(
+      (sum, p) => sum + p.sessionsCompleted,
+      0,
+    ),
+    daysActive: currentWindow.filter((p) => p.sessionsCompleted > 0).length,
+    keysPracticed: 0, // não disponível no trend diário
+  };
+
+  const previousValues = {
+    netWpm: avg(previousWindow.map((p) => p.netWpm)),
+    accuracy: avg(previousWindow.map((p) => p.accuracy)),
+    averageLatencyMs: avg(previousWindow.map((p) => p.averageLatencyMs)),
+    sessionsCompleted: previousWindow.reduce(
+      (sum, p) => sum + p.sessionsCompleted,
+      0,
+    ),
+    daysActive: previousWindow.filter((p) => p.sessionsCompleted > 0).length,
+    keysPracticed: 0,
+  };
+
+  return {
+    ...kpis,
+    netWpmComparison: computeComparison(
+      currentValues.netWpm,
+      previousValues.netWpm || null,
+    ),
+    accuracyComparison: computeComparison(
+      currentValues.accuracy,
+      previousValues.accuracy || null,
+    ),
+    latencyComparison: computeComparison(
+      currentValues.averageLatencyMs,
+      previousValues.averageLatencyMs || null,
+    ),
+    sessionsComparison: computeComparison(
+      currentValues.sessionsCompleted,
+      previousValues.sessionsCompleted || null,
+    ),
+    daysActiveComparison: computeComparison(
+      currentValues.daysActive,
+      previousValues.daysActive || null,
+    ),
+    keysPracticedComparison: computeComparison(
+      currentValues.keysPracticed,
+      previousValues.keysPracticed || null,
+    ),
+  };
 }

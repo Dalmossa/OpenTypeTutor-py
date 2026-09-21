@@ -2,6 +2,13 @@
 // GET /me/dashboard/{habits,mastery,proximity} (src/application/dtos/DashboardDTOs.ts).
 // Nenhuma RN no cliente (ADR-018) — a UI apenas renderiza estes DTOs.
 
+export interface PeriodComparison<T> {
+  current: T;
+  previous: T | null;
+  delta: number; // current - previous (pode ser negativo)
+  deltaPercent: number | null; // (delta / previous) * 100, null se previous === 0 ou null
+}
+
 export interface DashboardKPI {
   netWpm: number;
   accuracy: number; // 0..1
@@ -9,6 +16,15 @@ export interface DashboardKPI {
   sessionsCompleted: number;
   daysActive: number;
   keysPracticed: number;
+}
+
+export interface DashboardKPIWithComparison extends DashboardKPI {
+  netWpmComparison?: PeriodComparison<number>;
+  accuracyComparison?: PeriodComparison<number>;
+  latencyComparison?: PeriodComparison<number>;
+  sessionsComparison?: PeriodComparison<number>;
+  daysActiveComparison?: PeriodComparison<number>;
+  keysPracticedComparison?: PeriodComparison<number>;
 }
 
 export interface DashboardTrendPoint {
@@ -60,3 +76,15 @@ export interface DashboardProximityKey {
 export interface GetDashboardProximityResponseDTO {
   keys: DashboardProximityKey[];
 }
+
+// Helpers de seleção de janela (página do dashboard)
+export type PresetWindow = 7 | 30 | 90;
+export type TrendWindow = PresetWindow | "custom";
+
+export interface CustomDateRange {
+  kind: "custom";
+  start: string; // YYYY-MM-DD
+  end: string; // YYYY-MM-DD
+}
+
+export type DateRangeSelection = PresetWindow | CustomDateRange;

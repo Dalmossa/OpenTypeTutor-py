@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, useMemo } from 'react';
 import type { ReactNode } from 'react';
 
 import { useAuth } from '@/components/auth-provider';
@@ -8,24 +8,92 @@ import { HeatmapKeyboard } from '@/components/dashboard/heatmap-keyboard';
 import { KpiCards } from '@/components/dashboard/kpi-cards';
 import { ProximityList } from '@/components/dashboard/proximity-list';
 import { StateDistribution } from '@/components/dashboard/state-distribution';
+import { StreakCards } from '@/components/dashboard/streak-cards';
 import { formatDateKey } from '@/components/dashboard/dashboard-meta';
 import { TransitionsTimeline } from '@/components/dashboard/transitions-timeline';
 import { TrendChart } from '@/components/dashboard/trend-chart';
+import { DateRangePicker } from '@/components/dashboard/date-range-picker';
+import { enrichKPIsWithComparison } from '@/components/dashboard/dashboard-meta';
 import { createControllers } from '@/controllers';
 import type {
   GetDashboardHabitsResponseDTO,
   GetDashboardMasteryResponseDTO,
   GetDashboardProximityResponseDTO,
+  DashboardTrendPoint,
+  PresetWindow,
+  CustomDateRange,
+  DateRangeSelection,
 } from '@/models/dashboard';
 
-type TrendWindow = 7 | 30 | 90;
+const PRESET_WINDOWS: readonly PresetWindow[] = [7, 30, 90];
 
-const TREND_WINDOWS: readonly TrendWindow[] = [7, 30, 90];
+// RN35 - janela selecionável na página. O backend devolve série de 90 dias;
+// o recorte + comparação é só apresentação (ADR-018, sem RN).
+function sliceWindow(trend: DashboardTrendPoint[], window: PresetWindow | CustomDateRange): DashboardTrendPoint[] {
+  if (typeof window === 'number') {
+    return trend.length > window ? trend.slice(-window) : trend;
+  }
+  // CustomDateRange: filtra por intervalo
+  const { start, end } = window;
+  return trend.filter(p => p.date >= start && p.date <= end);
+}
 
-// RN35 - janelas de tendência selecionáveis na página (7/30/90). O backend devolve
-// a série de 90 dias; o recorte da janela é só apresentação (ADR-018, sem RN).
-function sliceWindow(trend: GetDashboardHabitsResponseDTO['trend'], window: TrendWindow) {
-  return trend.length > window ? trend.slice(trend.length - window) : trend;
+function sliceComparisonWindow(
+  trend: DashboardTrendPoint[], 
+  window: PresetWindow | CustomDateRange
+): DashboardTrendPoint[] {
+  if (typeof window === 'number') {
+    const startIdx = Math.max(0, trend.length - window * 2);
+    const endIdx = trend.length - window;
+    return trend.slice(startIdx, endIdx);
+  }
+  // CustomDateRange: período anterior de mesmo tamanho
+  const { start, end } = window;
+  const startDate = new Date(start);
+  const endDate = new Date(end);
+  const diffDays = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+  const prevStart = new Date(startDate);
+  prevStart.setDate(prevStart.getDate() - diffDays);
+  const prevEnd = new Date(endDate);
+  prevEnd.setDate(prevEnd.getDate() - diffDays);
+  const prevStartStr = prevStart.toISOString().split('T')[0];
+  const prevEndStr = prevEnd.toISOString().split('T')[0];
+  return trend.filter(p => p.date >= prevStartStr && p.date <= prevEndStr);
+}
+
+// Calcula streak atual e recorde a partir do trend (dias com sessões > 0)
+function computeStreaks(trend: DashboardTrendPoint[]): { current: number; longest: number } {
+  if (trend.length === 0) return { current: 0, longest: 0 };
+  
+  const sorted = [...trend].sort((a, b) => a.date.localeCompare(b.date));
+  const activeDays = new Set(sorted.filter(p => p.sessionsCompleted > 0).map(p => p.date));
+  
+  let longest = 0;
+  let current = 0;
+  let streak = 0;
+  
+  // Itera em ordem cronológica
+  for (const day of sorted) {
+    const isActive = activeDays.has(day.date);
+    if (isActive) {
+      streak++;
+      longest = Math.max(longest, streak);
+    } else {
+      streak = 0;
+    }
+  }
+  
+  // Streak atual: conta dias ativos consecutivos a partir do fim
+  let currentStreak = 0;
+  for (let i = sorted.length - 1; i >= 0; i--) {
+    if (activeDays.has(sorted[i].date)) {
+      currentStreak++;
+    } else {
+      break;
+    }
+  }
+  
+  return { current: currentStreak, longest };
 }
 
 export default function DashboardPage(): ReactNode {
@@ -33,13 +101,11 @@ export default function DashboardPage(): ReactNode {
   const [habits, setHabits] = useState<GetDashboardHabitsResponseDTO | null>(null);
   const [mastery, setMastery] = useState<GetDashboardMasteryResponseDTO | null>(null);
   const [proximity, setProximity] = useState<GetDashboardProximityResponseDTO | null>(null);
-  const [window, setWindow] = useState<TrendWindow>(30);
+  const [range, setRange] = useState<DateRangeSelection>(30);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const fetchDashboard = useCallback(async (): Promise<void> => {
-    if (token === null) {
-      return;
-    }
+    if (token === null) return;
     const controllers = createControllers();
     const [habitsResult, masteryResult, proximityResult] = await Promise.all([
       controllers.dashboard.getHabits(token),
@@ -53,9 +119,7 @@ export default function DashboardPage(): ReactNode {
   }, [token]);
 
   useEffect(() => {
-    if (loading || token === null) {
-      return;
-    }
+    if (loading || token === null) return;
     let cancelled = false;
     fetchDashboard()
       .catch((err: unknown) => {
@@ -63,20 +127,28 @@ export default function DashboardPage(): ReactNode {
           setErrorMessage(err instanceof Error ? err.message : 'Falha ao carregar o dashboard');
         }
       });
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [loading, token, fetchDashboard]);
 
-  if (loading) {
-    return <p className="py-8 text-slate-500">Carregando…</p>;
-  }
+  if (loading) return <p className="py-8 text-slate-500">Carregando…</p>;
+  if (user === null) return <p className="py-8 text-slate-500">Você não está autenticado.</p>;
 
-  if (user === null) {
-    return <p className="py-8 text-slate-500">Você não está autenticado.</p>;
-  }
-
-  const trend = habits !== null ? sliceWindow(habits.trend, window) : [];
+  // Dados para a janela atual
+  const currentTrend = habits !== null ? sliceWindow(habits.trend, range) : [];
+  // Dados para período anterior (comparação)
+  const comparisonTrend = habits !== null ? sliceComparisonWindow(habits.trend, range) : [];
+  
+  // Enriquece KPIs com comparação (janela em dias)
+  const windowDays = typeof range === 'number' ? range : 30;
+  const enrichedKpis = habits !== null 
+    ? enrichKPIsWithComparison(habits.kpis, habits.trend, windowDays)
+    : EMPTY_KPIS;
+  
+  // Streaks
+  const { current: currentStreak, longest: longestStreak } = useMemo(
+    () => habits ? computeStreaks(habits.trend) : { current: 0, longest: 0 },
+    [habits?.trend]
+  );
 
   return (
     <div className="flex flex-col gap-6 py-6">
@@ -93,34 +165,45 @@ export default function DashboardPage(): ReactNode {
         <p className="py-8 text-slate-500">Carregando…</p>
       ) : (
         <>
-          <section aria-label="Indicadores (janela 30d)">
-            <h2 className="mb-3 text-sm font-semibold text-slate-500">Indicadores</h2>
-            <KpiCards kpis={habits?.kpis ?? EMPTY_KPIS} activeDays={habits?.kpis.daysActive ?? 0} />
+          <section aria-label="Indicadores (janela selecionada)">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+              <h2 className="text-sm font-semibold text-slate-500">Indicadores</h2>
+              <DateRangePicker value={range} onChange={setRange} />
+            </div>
+            <KpiCards kpis={enrichedKpis} activeDays={enrichedKpis.daysActive} />
           </section>
 
+          {currentStreak > 0 && (
+            <section aria-label="Streaks">
+              <h2 className="mb-3 text-sm font-semibold text-slate-500">Streaks</h2>
+              <StreakCards currentStreak={currentStreak} longestStreak={longestStreak} />
+            </section>
+          )}
+
           <section aria-label="Evolução">
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-slate-500">Evolução diária (RN35)</h2>
-              <div className="flex rounded-md border border-slate-300 p-0.5 text-sm">
-                {TREND_WINDOWS.map((option) => (
-                  <button
-                    key={option}
-                    type="button"
-                    onClick={() => setWindow(option)}
-                    aria-pressed={window === option}
-                    className={`rounded px-3 py-1 ${
-                      window === option ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100'
-                    }`}
-                  >
-                    {option}d
-                  </button>
-                ))}
-              </div>
-            </div>
+            <h2 className="mb-3 text-sm font-semibold text-slate-500">Evolução diária (RN35)</h2>
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-              <TrendChart title="PPM (palavras por minuto)" points={trend} metric="netWpm" color="#6366f1" />
-              <TrendChart title="Precisão" points={trend} metric="accuracy" color="#10b981" />
-              <TrendChart title="Latência média" points={trend} metric="averageLatencyMs" color="#f59e0b" />
+              <TrendChart 
+                title="PPM (palavras por minuto)" 
+                points={currentTrend} 
+                comparisonPoints={comparisonTrend}
+                metric="netWpm" 
+                color="#6366f1" 
+              />
+              <TrendChart 
+                title="Precisão" 
+                points={currentTrend} 
+                comparisonPoints={comparisonTrend}
+                metric="accuracy" 
+                color="#10b981" 
+              />
+              <TrendChart 
+                title="Latência média" 
+                points={currentTrend} 
+                comparisonPoints={comparisonTrend}
+                metric="averageLatencyMs" 
+                color="#f59e0b" 
+              />
             </div>
           </section>
 
@@ -133,6 +216,12 @@ export default function DashboardPage(): ReactNode {
             ) : (
               <p className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
                 Ainda não há prática registrada na janela de 7 dias.
+                <button 
+                  onClick={() => setRange(7)}
+                  className="ml-2 text-indigo-600 hover:underline text-sm"
+                >
+                  Ver 7 dias
+                </button>
               </p>
             )}
           </section>

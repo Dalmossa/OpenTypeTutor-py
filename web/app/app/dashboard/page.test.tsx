@@ -91,16 +91,18 @@ describe('DashboardPage (TASK-098, 8 widgets)', () => {
     expect(screen.getByText('Teclas praticadas')).toBeInTheDocument();
   });
 
-  it('renderiza as 3 linhas de evolução (PPM, precisão, latência) com seletor 7/30/90', async () => {
+  it('renderiza as 3 linhas de evolução (PPM, precisão, latência) com seletor de período', async () => {
     render(<DashboardPage />);
 
     await waitFor(() => expect(screen.getByText('Evolução diária (RN35)')).toBeInTheDocument());
     expect(screen.getByText('PPM (palavras por minuto)')).toBeInTheDocument();
     expect(screen.getByText('Precisão', { selector: 'h3' })).toBeInTheDocument();
     expect(screen.getByText('Latência média', { selector: 'h3' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '7d' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '30d' })).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.getByRole('button', { name: '90d' })).toBeInTheDocument();
+    // Novo DateRangePicker: botões de preset + "Personalizado"
+    expect(screen.getByRole('button', { name: '7 dias' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '30 dias' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: '90 dias' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Personalizado' })).toBeInTheDocument();
   });
 
   it('renderiza o teclado heatmap (RN34) com as teclas praticadas', async () => {
