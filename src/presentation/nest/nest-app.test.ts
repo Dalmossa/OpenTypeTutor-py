@@ -78,6 +78,7 @@ const PEDAGOGICAL_LESSON_FIXTURE: GetNextPedagogicalLessonResponseDTO = {
 };
 
 const PROGRESS_CARD_FIXTURE: SubmitProgressCardResponseDTO = {
+  advanced: true,
   progressCard: {
     id: "3bab2b40-0000-4000-8000-000000000001",
     userId: TEST_USER_ID,

@@ -1,28 +1,34 @@
-import type { Request, Response } from 'express';
+import type { Request, Response } from "express";
 import type {
   CheckErgonomicSafetyPort,
   GetNextPedagogicalLessonPort,
   SubmitProgressCardPort,
-} from '../ports/useCasePorts.js';
-import { getAuthUserId } from '../middlewares/authMiddleware.js';
-import { parseSchema } from '../validation/zodErrorMap.js';
+} from "../ports/useCasePorts.js";
+import { getAuthUserId } from "../middlewares/authMiddleware.js";
+import { parseSchema } from "../validation/zodErrorMap.js";
 import {
   ergonomicCheckSchema,
   nextLessonQuerySchema,
   submitProgressCardSchema,
-} from '../validators/pedagogicalValidators.js';
+} from "../validators/pedagogicalValidators.js";
 
 export class PedagogicalController {
   constructor(
     private readonly getNextPedagogicalLesson: GetNextPedagogicalLessonPort,
     private readonly submitProgressCard: SubmitProgressCardPort,
-    private readonly checkErgonomicSafety: CheckErgonomicSafetyPort
+    private readonly checkErgonomicSafety: CheckErgonomicSafetyPort,
   ) {}
 
   async nextLesson(req: Request, res: Response): Promise<void> {
     const userId = getAuthUserId(req);
-    const { confirmsNoLookingAtKeyboard } = parseSchema(nextLessonQuerySchema, req.query);
-    const result = await this.getNextPedagogicalLesson.execute({ userId, confirmsNoLookingAtKeyboard });
+    const { confirmsNoLookingAtKeyboard } = parseSchema(
+      nextLessonQuerySchema,
+      req.query,
+    );
+    const result = await this.getNextPedagogicalLesson.execute({
+      userId,
+      confirmsNoLookingAtKeyboard,
+    });
     res.json(result);
   }
 
@@ -31,11 +37,14 @@ export class PedagogicalController {
     const body = parseSchema(submitProgressCardSchema, req.body);
     const result = await this.submitProgressCard.execute({
       userId,
+      lessonId: body.lessonId,
       insecureKeys: body.insecureKeys,
       discomfortReported: body.discomfortReported,
       nextSessionNote: body.nextSessionNote,
       currentBackspaceCount: body.currentBackspaceCount,
-      ...(body.discomfortDetail !== undefined ? { discomfortDetail: body.discomfortDetail } : {}),
+      ...(body.discomfortDetail !== undefined
+        ? { discomfortDetail: body.discomfortDetail }
+        : {}),
     });
     res.status(201).json(result);
   }
@@ -48,7 +57,9 @@ export class PedagogicalController {
       monitorAtEyeLevel: body.monitorAtEyeLevel,
       wristSupportOk: body.wristSupportOk,
       discomfortReported: body.discomfortReported,
-      ...(body.discomfortDetail !== undefined ? { discomfortDetail: body.discomfortDetail } : {}),
+      ...(body.discomfortDetail !== undefined
+        ? { discomfortDetail: body.discomfortDetail }
+        : {}),
     });
     res.status(201).json(result);
   }

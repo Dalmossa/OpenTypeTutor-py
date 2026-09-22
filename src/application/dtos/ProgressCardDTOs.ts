@@ -1,5 +1,5 @@
-import type { LessonDTO } from '../../domain/entities/Lesson.js';
-import type { ProgressCardDTO } from '../../domain/entities/ProgressCard.js';
+import type { LessonDTO } from "../../domain/entities/Lesson.js";
+import type { ProgressCardDTO } from "../../domain/entities/ProgressCard.js";
 
 export interface GetNextPedagogicalLessonInputDTO {
   userId: string;
@@ -9,12 +9,19 @@ export interface GetNextPedagogicalLessonInputDTO {
 export interface GetNextPedagogicalLessonResponseDTO {
   lesson: LessonDTO | null;
   shouldVaryExercise: boolean;
-  reason: 'advance' | 'repeat' | 'vary' | 'complete' | 'no_lessons' | 'pause_discomfort';
+  reason:
+    | "advance"
+    | "repeat"
+    | "vary"
+    | "complete"
+    | "no_lessons"
+    | "pause_discomfort";
   progressCard: ProgressCardDTO | null;
 }
 
 export interface SubmitProgressCardInputDTO {
   userId: string;
+  lessonId: string;
   insecureKeys: string[];
   discomfortReported: boolean;
   discomfortDetail?: string;
@@ -23,7 +30,8 @@ export interface SubmitProgressCardInputDTO {
 }
 
 export interface SubmitProgressCardResponseDTO {
-  progressCard: ProgressCardDTO;
+  progressCard: ProgressCardDTO | null;
+  advanced: boolean;
 }
 
 export interface ErgonomicCheckInput {

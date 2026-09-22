@@ -3,7 +3,7 @@ import tseslint from 'typescript-eslint';
 import boundaries from 'eslint-plugin-boundaries';
 
 export default tseslint.config(
-  { ignores: ['dist/', 'node_modules/', '*.config.*', '*.md', 'bench/'] },
+  { ignores: ['dist/', 'node_modules/', '*.config.*', '*.md', 'bench/', 'scripts/'] },
   js.configs.recommended,
   ...tseslint.configs.recommendedTypeChecked,
   ...tseslint.configs.strictTypeChecked,

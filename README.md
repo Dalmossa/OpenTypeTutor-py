@@ -123,11 +123,11 @@ A UI web segue o protocolo MVC de apresentação (ADR-018) e **não contém regr
 
 - **Autenticação** — registro/login com bcrypt (12 rounds), JWT de curto prazo (15m) + refresh rotativo (30d), rate limiting em `/auth/login` e `/auth/refresh`.
 - **Sessões de digitação** — ciclo de vida completo (iniciar, pausar, retomar, submeter, abandonar); submit **idempotente** (RN14) e com descarte de dados insuficientes (RN22).
-- **Métricas** — WPM, acurácia e latência por tecla; erros finais não corrigidos `max(0, errors − corrections)` (RN21); latência de dead-keys medida do primeiro compose ao último keydown.
+- **Métricas** — WPM, precisão e latência por tecla; erros finais não corrigidos `max(0, errors − corrections)` (RN21); latência de dead-keys medida do primeiro compose ao último keydown.
 - **Motor adaptativo** — WeakKeyScore, pesos neural-like, pools de reforço com arredondamento determinístico por maior resto e desempate `WEAK > CONSOLIDATING > MASTERED` (RN19).
-- **Mastery por tecla** — 3 sessões aprovadas consecutivas (acurácia ≥95%, ≥30 tentativas, latência média ≤500ms); regressão após 3 não aprovadas (RN09/RN10).
+- **Mastery por tecla** — 3 sessões aprovadas consecutivas (precisão ≥95%, ≥30 tentativas, latência média ≤500ms); regressão após 3 não aprovadas (RN09/RN10).
 - **Progressão pedagógica** — lições em fases, reforço com corpus de frases (500 composições originais, normalizadas para ASCII — ADR-016) e pacing ergonômico (15 min de prática → pausa mínima de 3 min, RN33).
-- **Dashboard** — heatmap por tecla, tendência por período (WPM/acurácia/latência), MasteryProximityIndex [0,1] e agregação por dia no fuso local do usuário (RN34–RN37).
+- **Dashboard** — heatmap por tecla, tendência por período (WPM/precisão/latência), MasteryProximityIndex [0,1] e agregação por dia no fuso local do usuário (RN34–RN37).
 - **Layouts** — ABNT2 e US-INTERNATIONAL, com desempenho isolado por layout (`KeyPerformance` chaveado por `(userId, logicalKey, layout)`).
 
 ## API (visão geral)

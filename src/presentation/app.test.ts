@@ -81,6 +81,7 @@ const PEDAGOGICAL_LESSON_FIXTURE: GetNextPedagogicalLessonResponseDTO = {
 };
 
 const PROGRESS_CARD_FIXTURE: SubmitProgressCardResponseDTO = {
+  advanced: true,
   progressCard: {
     id: "3bab2b40-0000-4000-8000-000000000001",
     userId: TEST_USER_ID,
@@ -925,6 +926,7 @@ describe("TASK-062 - rotas pedagógicas /me/*", () => {
       .post("/me/progress-card")
       .set("Authorization", "Bearer token")
       .send({
+        lessonId: "3bab2b40-0000-4000-8000-000000000001",
         insecureKeys: ["a"],
         discomfortReported: false,
         nextSessionNote: "Lição 1 concluída",
@@ -936,11 +938,29 @@ describe("TASK-062 - rotas pedagógicas /me/*", () => {
     expect(body.progressCard.phase).toBe("ERGONOMICS_SETUP");
     expect(calls.submitCard).toHaveBeenCalledWith({
       userId: TEST_USER_ID,
+      lessonId: "3bab2b40-0000-4000-8000-000000000001",
       insecureKeys: ["a"],
       discomfortReported: false,
       nextSessionNote: "Lição 1 concluída",
       currentBackspaceCount: 2,
     });
+  });
+
+  it("POST /me/progress-card sem lessonId → 422", async () => {
+    const { app, calls } = buildTestApp();
+    const res = await request(app)
+      .post("/me/progress-card")
+      .set("Authorization", "Bearer token")
+      .send({
+        insecureKeys: [],
+        discomfortReported: false,
+        nextSessionNote: "nota",
+        currentBackspaceCount: 1,
+      });
+
+    expect(res.status).toBe(422);
+    expect(asErrorBody(res.body).error.code).toBe("VALIDATION_ERROR");
+    expect(calls.submitCard).not.toHaveBeenCalled();
   });
 
   it("POST /me/progress-card com userId no corpo → 422 (userId sempre do token)", async () => {

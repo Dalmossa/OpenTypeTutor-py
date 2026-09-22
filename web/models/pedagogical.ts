@@ -1,12 +1,12 @@
-import type { LessonDTO } from '@/models/lesson';
+import type { LessonDTO } from "@/models/lesson";
 
 export type PedagogicalReason =
-  | 'advance'
-  | 'repeat'
-  | 'vary'
-  | 'complete'
-  | 'no_lessons'
-  | 'pause_discomfort';
+  | "advance"
+  | "repeat"
+  | "vary"
+  | "complete"
+  | "no_lessons"
+  | "pause_discomfort";
 
 export interface ProgressCardDTO {
   id: string;
@@ -30,6 +30,7 @@ export interface GetNextPedagogicalLessonResponseDTO {
 }
 
 export interface SubmitProgressCardDTO {
+  lessonId: string;
   insecureKeys: string[];
   discomfortReported: boolean;
   discomfortDetail?: string;
@@ -38,7 +39,8 @@ export interface SubmitProgressCardDTO {
 }
 
 export interface SubmitProgressCardResponseDTO {
-  progressCard: ProgressCardDTO;
+  progressCard: ProgressCardDTO | null;
+  advanced: boolean;
 }
 
 export interface ErgonomicCheckDTO {

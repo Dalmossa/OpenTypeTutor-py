@@ -277,7 +277,7 @@ describe("TASK-081 - Regressões de composição do cliente web", () => {
     expect(result.metrics.finalUncorrectedErrors).toBe(1);
   });
 
-  it("compose correto não infla acurácia", async () => {
+  it("compose correto não infla precisão", async () => {
     const sessionId = await startAs();
 
     vi.advanceTimersByTime(5000);

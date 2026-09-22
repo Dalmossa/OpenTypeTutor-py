@@ -512,11 +512,13 @@ _Interface HTTP de sistema (Sommerville §6.4 — interface de procedimentos/API
 | GET    | `/me/dashboard/habits`     | ✓    | `GetDashboardHabits`       | 200 `{kpis, trend[], heatmap[]}`                                                          | `UNAUTHORIZED` (401)                                                                                |
 | GET    | `/me/dashboard/mastery`    | ✓    | `GetDashboardMastery`      | 200 `{transitions[], countsByState}`                                                      | `UNAUTHORIZED` (401)                                                                                |
 | GET    | `/me/dashboard/proximity`  | ✓    | `GetDashboardProximity`    | 200 `{keys[]}` (MPI + banda por tecla)                                                    | `UNAUTHORIZED` (401)                                                                                |
-| POST   | `/me/progress-card`        | ✓    | `SubmitProgressCard`       | 201                                                                                       | `UNAUTHORIZED` (401), `VALIDATION_ERROR` (422)                                                      |
+| POST   | `/me/progress-card`        | ✓    | `SubmitProgressCard`       | 201 `{progressCard, advanced}`                                                            | `UNAUTHORIZED` (401), `VALIDATION_ERROR` (422)                                                      |
 | POST   | `/me/ergonomic-check`      | ✓    | `CheckErgonomicSafety`     | 201                                                                                       | `UNAUTHORIZED` (401), `VALIDATION_ERROR` (422), `DISCOMFORT_SIGNALED` (422, RN28)                   |
 | GET    | `/health`                  | —    | —                          | 200                                                                                       | —                                                                                                   |
 
 > Nota: o código `SESSION_ALREADY_COMPLETED` (409) existe no catálogo §28.5; no caminho implementado de `submit`, sessão `COMPLETED` **não** é erro — retorna `200` com o resultado cacheado (RN14). O código permanece catalogado para compatibilidade/consumidores que o emitiam.
+
+> Nota (RN26(d), TASK-108): `POST /me/progress-card` recebe `lessonId` (identificador da lição concluída); a fronteira do currículo só avança quando a lição é a da fronteira (mesma fase e mesmo número de lição do Cartão de Progresso mais recente — fail-closed se a lição não existir); lições de revisão não movimentam a fronteira e a resposta traz `advanced: false`, orientando o cliente a não renderizar "Avançar" (RN40).
 
 ---
 

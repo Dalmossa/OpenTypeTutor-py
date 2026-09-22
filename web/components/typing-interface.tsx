@@ -1,23 +1,27 @@
-'use client';
+"use client";
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from "react";
 import type {
   CompositionEvent as ReactCompositionEvent,
   FormEvent as ReactFormEvent,
   KeyboardEvent as ReactKeyboardEvent,
   ReactNode,
-} from 'react';
+} from "react";
 
-import InfoTip from '@/components/info-tip';
-import VirtualKeyboard from '@/components/virtual-keyboard';
-import { createControllers } from '@/controllers';
-import { buildKeyboardModel, resolveAwaitedKey, resolveKeyLabel } from '@/lib/virtual-keyboard';
-import { getMetricHelp } from '@/lib/metric-help';
-import { KEY_HINT_TIMEOUT_MS } from '@/lib/typing-hints';
-import type { LessonDTO } from '@/models/lesson';
-import type { PedagogicalReason } from '@/models/pedagogical';
-import type { SubmitSessionResponseDTO } from '@/models/session';
-import type { UseTypingSessionResult } from '@/hooks/use-typing-session';
+import InfoTip from "@/components/info-tip";
+import VirtualKeyboard from "@/components/virtual-keyboard";
+import { createControllers } from "@/controllers";
+import {
+  buildKeyboardModel,
+  resolveAwaitedKey,
+  resolveKeyLabel,
+} from "@/lib/virtual-keyboard";
+import { getMetricHelp } from "@/lib/metric-help";
+import { KEY_HINT_TIMEOUT_MS } from "@/lib/typing-hints";
+import type { LessonDTO } from "@/models/lesson";
+import type { PedagogicalReason } from "@/models/pedagogical";
+import type { SubmitSessionResponseDTO } from "@/models/session";
+import type { UseTypingSessionResult } from "@/hooks/use-typing-session";
 
 interface TypingInterfaceProps {
   session: UseTypingSessionResult;
@@ -27,35 +31,45 @@ interface TypingInterfaceProps {
 }
 
 const STATUS_LABELS: Record<string, string> = {
-  IDLE: 'Pronto para começar',
-  RUNNING: 'Sessão ativa',
-  PAUSED: 'Sessão pausada',
-  ABANDONED: 'Sessão abandonada',
-  COMPLETED: 'Lição concluída',
+  IDLE: "Pronto para começar",
+  RUNNING: "Sessão ativa",
+  PAUSED: "Sessão pausada",
+  ABANDONED: "Sessão abandonada",
+  COMPLETED: "Lição concluída",
 };
 
-export default function TypingInterface({ session, onBack, onRepeatLesson, onAdvanceLesson }: TypingInterfaceProps) {
+export default function TypingInterface({
+  session,
+  onBack,
+  onRepeatLesson,
+  onAdvanceLesson,
+}: TypingInterfaceProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const composingRef = useRef(false);
   const committedRef = useRef(false);
-  const compositionStrRef = useRef('');
+  const compositionStrRef = useRef("");
   const [showComposition, setShowComposition] = useState(false);
-  const [pressedKeys, setPressedKeys] = useState<ReadonlySet<string>>(new Set());
+  const [pressedKeys, setPressedKeys] = useState<ReadonlySet<string>>(
+    new Set(),
+  );
   const [hintKey, setHintKey] = useState<string | null>(null);
 
   const lesson = session.lesson;
   const content = useMemo(
-    () => (lesson?.content ?? '').replace(/[\r\n]+/g, ' '),
+    () => (lesson?.content ?? "").replace(/[\r\n]+/g, " "),
     [lesson?.content],
   );
-  const keyboardModel = useMemo(() => buildKeyboardModel(lesson?.layout ?? 'ABNT2'), [lesson?.layout]);
+  const keyboardModel = useMemo(
+    () => buildKeyboardModel(lesson?.layout ?? "ABNT2"),
+    [lesson?.layout],
+  );
 
   // RN39 - quando o usuário demora além do tempo médio padrão de digitação na tecla
   // aguardada, o teclado virtual pisca a tecla como dica. O timer reinicia a cada
   // posição digitada e é suspenso durante composição de tecla morta.
   useEffect(() => {
     setHintKey(null);
-    if (session.phase !== 'typing' || showComposition) {
+    if (session.phase !== "typing" || showComposition) {
       return;
     }
     const awaited = content[session.position];
@@ -63,11 +77,18 @@ export default function TypingInterface({ session, onBack, onRepeatLesson, onAdv
       return;
     }
     const timeoutId = window.setTimeout(() => {
-      const prevChar = session.position > 0 ? content[session.position - 1] ?? null : null;
+      const prevChar =
+        session.position > 0 ? (content[session.position - 1] ?? null) : null;
       setHintKey(resolveAwaitedKey(awaited, prevChar, keyboardModel));
     }, KEY_HINT_TIMEOUT_MS);
     return () => window.clearTimeout(timeoutId);
-  }, [session.phase, session.position, showComposition, content, keyboardModel]);
+  }, [
+    session.phase,
+    session.position,
+    showComposition,
+    content,
+    keyboardModel,
+  ]);
 
   function markPressed(code: string, key: string): void {
     const label = resolveKeyLabel(code, key, keyboardModel);
@@ -92,8 +113,10 @@ export default function TypingInterface({ session, onBack, onRepeatLesson, onAdv
   }
 
   function handleBeforeInput(e: ReactFormEvent<HTMLInputElement>): void {
-    const data = (e as ReactFormEvent<HTMLInputElement> & { data: string | null }).data;
-    if (data !== null && data !== '') {
+    const data = (
+      e as ReactFormEvent<HTMLInputElement> & { data: string | null }
+    ).data;
+    if (data !== null && data !== "") {
       committedRef.current = true;
       session.handleInput(e.currentTarget.value + data, data);
     }
@@ -101,7 +124,7 @@ export default function TypingInterface({ session, onBack, onRepeatLesson, onAdv
 
   function handleKeyDown(e: ReactKeyboardEvent<HTMLInputElement>): void {
     markPressed(e.code, e.key);
-    if (e.key === 'Backspace') {
+    if (e.key === "Backspace") {
       e.preventDefault();
       session.handleBackspace();
     }
@@ -118,11 +141,13 @@ export default function TypingInterface({ session, onBack, onRepeatLesson, onAdv
   function handleCompositionStart(): void {
     composingRef.current = true;
     committedRef.current = false;
-    compositionStrRef.current = '';
+    compositionStrRef.current = "";
     setShowComposition(true);
   }
 
-  function handleCompositionUpdate(e: ReactCompositionEvent<HTMLInputElement>): void {
+  function handleCompositionUpdate(
+    e: ReactCompositionEvent<HTMLInputElement>,
+  ): void {
     compositionStrRef.current = e.data;
     session.handleCompositionChange(e.data);
     setShowComposition(e.data.length > 0);
@@ -131,10 +156,10 @@ export default function TypingInterface({ session, onBack, onRepeatLesson, onAdv
   function handleCompositionEnd(): void {
     composingRef.current = false;
     setShowComposition(false);
-    session.handleCompositionChange('');
+    session.handleCompositionChange("");
     const composed = compositionStrRef.current;
-    compositionStrRef.current = '';
-    if (!committedRef.current && composed !== '') {
+    compositionStrRef.current = "";
+    if (!committedRef.current && composed !== "") {
       session.handleCompositionEnd(composed);
     }
   }
@@ -144,14 +169,16 @@ export default function TypingInterface({ session, onBack, onRepeatLesson, onAdv
   }
 
   const stats = session.stats;
-  const isIdle = session.phase === 'idle';
-  const isCompleted = session.phase === 'completed';
-  const isPaused = session.phase === 'paused';
+  const isIdle = session.phase === "idle";
+  const isCompleted = session.phase === "completed";
+  const isPaused = session.phase === "paused";
 
-  if (session.phase === 'loading' || session.phase === 'submitting') {
+  if (session.phase === "loading" || session.phase === "submitting") {
     return (
       <div className="py-16 text-center text-ink-subtle">
-        {session.phase === 'loading' ? 'Iniciando sessão…' : 'Enviando resultados…'}
+        {session.phase === "loading"
+          ? "Iniciando sessão…"
+          : "Enviando resultados…"}
       </div>
     );
   }
@@ -159,7 +186,9 @@ export default function TypingInterface({ session, onBack, onRepeatLesson, onAdv
   if (isIdle) {
     return (
       <div className="flex flex-col items-center gap-4 py-16 text-center">
-        <p className="text-ink-subtle">Nenhuma sessão ativa. Selecione uma lição para começar.</p>
+        <p className="text-ink-subtle">
+          Nenhuma sessão ativa. Selecione uma lição para começar.
+        </p>
       </div>
     );
   }
@@ -168,6 +197,7 @@ export default function TypingInterface({ session, onBack, onRepeatLesson, onAdv
     return (
       <CompletedPanel
         result={session.result}
+        lessonId={lesson?.id}
         token={session.token}
         insecureKeys={session.lastInsecureKeys}
         backspaceCount={session.stats.corrections}
@@ -178,7 +208,7 @@ export default function TypingInterface({ session, onBack, onRepeatLesson, onAdv
     );
   }
 
-  if (session.phase === 'error') {
+  if (session.phase === "error") {
     return (
       <div className="flex flex-col items-center gap-4 py-16 text-center">
         <p className="text-danger">{session.errorMessage}</p>
@@ -196,26 +226,39 @@ export default function TypingInterface({ session, onBack, onRepeatLesson, onAdv
   return (
     <div className="flex flex-col gap-4">
       {session.errorMessage !== null && (
-        <p className="rounded-md bg-danger-bg px-4 py-2 text-sm text-danger-fg">{session.errorMessage}</p>
+        <p className="rounded-md bg-danger-bg px-4 py-2 text-sm text-danger-fg">
+          {session.errorMessage}
+        </p>
       )}
 
       <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-3 lg:grid-cols-6">
         <Metric label="PPM bruta" value={formatNumber(stats.grossWpm)} />
         <Metric label="PPM líquida" value={formatNumber(stats.netWpm)} />
         <Metric label="Precisão" value={`${formatDecimal(stats.accuracy)}%`} />
-        <Metric label="Latência média" value={`${Math.round(stats.averageLatencyMs)} ms`} />
+        <Metric
+          label="Latência média"
+          value={`${Math.round(stats.averageLatencyMs)} ms`}
+        />
         <Metric label="Erros restantes" value={String(stats.errors)} />
-        <Metric label="Duração" value={formatDuration(stats.activeDurationMs)} />
+        <Metric
+          label="Duração"
+          value={formatDuration(stats.activeDurationMs)}
+        />
       </div>
 
-      <div onClick={refocus} className="cursor-text rounded-xl border border-hairline-strong bg-surface-2 p-6">
+      <div
+        onClick={refocus}
+        className="cursor-text rounded-xl border border-hairline-strong bg-surface-2 p-6"
+      >
         <div className="font-mono text-xl leading-relaxed tracking-wide">
           {Array.from(content).map((ch, index) => {
-            let cls = 'text-ink-tertiary';
+            let cls = "text-ink-tertiary";
             if (index < session.position) {
-              cls = session.errorIndexes.includes(index) ? 'text-danger-fg underline' : 'text-success';
+              cls = session.errorIndexes.includes(index)
+                ? "text-danger-fg underline"
+                : "text-success";
             } else if (index === session.position) {
-              cls = 'bg-primary text-white';
+              cls = "bg-primary text-white";
             }
             return (
               <span key={index} className={cls}>
@@ -223,7 +266,11 @@ export default function TypingInterface({ session, onBack, onRepeatLesson, onAdv
               </span>
             );
           })}
-          {showComposition && <span className="ml-2 text-warning">[{compositionStrRef.current}]</span>}
+          {showComposition && (
+            <span className="ml-2 text-warning">
+              [{compositionStrRef.current}]
+            </span>
+          )}
         </div>
         <input
           ref={inputRef}
@@ -245,21 +292,33 @@ export default function TypingInterface({ session, onBack, onRepeatLesson, onAdv
         />
       </div>
 
-      <VirtualKeyboard layout={lesson?.layout ?? 'ABNT2'} pressedKeys={pressedKeys} hintKey={hintKey} />
+      <VirtualKeyboard
+        layout={lesson?.layout ?? "ABNT2"}
+        pressedKeys={pressedKeys}
+        hintKey={hintKey}
+      />
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-ink-subtle">
-          {STATUS_LABELS[session.state ?? 'IDLE'] ?? session.state}
-          {' · '}
+          {STATUS_LABELS[session.state ?? "IDLE"] ?? session.state}
+          {" · "}
           {Math.round(session.progress * 100)}%
         </p>
         <div className="flex gap-3">
           {isPaused ? (
-            <button type="button" onClick={() => void session.resume()} className="rounded-md bg-primary px-4 py-2 text-white">
+            <button
+              type="button"
+              onClick={() => void session.resume()}
+              className="rounded-md bg-primary px-4 py-2 text-white"
+            >
               Pausado
             </button>
           ) : (
-            <button type="button" onClick={() => void session.pause()} className="rounded-md border border-hairline-strong px-4 py-2 text-ink-muted">
+            <button
+              type="button"
+              onClick={() => void session.pause()}
+              className="rounded-md border border-hairline-strong px-4 py-2 text-ink-muted"
+            >
               Pausar
             </button>
           )}
@@ -298,6 +357,7 @@ function Metric({ label, value }: { label: string; value: string }): ReactNode {
 
 interface CompletedPanelProps {
   result: SubmitSessionResponseDTO;
+  lessonId?: string;
   token: string | null;
   insecureKeys: string[];
   backspaceCount: number;
@@ -307,12 +367,18 @@ interface CompletedPanelProps {
 }
 
 type CompletionVerdict =
-  | { status: 'checking' }
-  | { status: 'ready'; lesson: LessonDTO | null; reason: PedagogicalReason }
-  | { status: 'error'; message: string };
+  | { status: "checking" }
+  | {
+      status: "ready";
+      lesson: LessonDTO | null;
+      reason: PedagogicalReason;
+      advanced: boolean;
+    }
+  | { status: "error"; message: string };
 
 function CompletedPanel({
   result,
+  lessonId,
   token,
   insecureKeys,
   backspaceCount,
@@ -322,55 +388,80 @@ function CompletedPanel({
 }: CompletedPanelProps): ReactNode {
   const m = result.metrics;
   const isInsufficient = m.activeDurationMs < 3000 || m.charactersTyped < 5;
-  const [verdict, setVerdict] = useState<CompletionVerdict>({ status: 'checking' });
+  const [verdict, setVerdict] = useState<CompletionVerdict>({
+    status: "checking",
+  });
   const submittedRef = useRef(false);
 
   useEffect(() => {
     if (isInsufficient || submittedRef.current || token === null) {
       return;
     }
+    if (lessonId === undefined) {
+      submittedRef.current = true;
+      setVerdict({ status: "error", message: "Sessão sem lição identificada" });
+      return;
+    }
     submittedRef.current = true;
     const pedagogical = createControllers().pedagogical;
     void (async () => {
       try {
-        await pedagogical.submitProgressCard(
+        const submitted = await pedagogical.submitProgressCard(
           {
+            lessonId,
             insecureKeys,
             discomfortReported: false,
-            nextSessionNote: 'Lição concluída. Próxima sessão recomendada.',
+            nextSessionNote: "Lição concluída. Próxima sessão recomendada.",
             currentBackspaceCount: backspaceCount,
           },
           token,
         );
         const next = await pedagogical.getNextLesson(token);
-        setVerdict({ status: 'ready', lesson: next.lesson, reason: next.reason });
+        setVerdict({
+          status: "ready",
+          lesson: next.lesson,
+          reason: next.reason,
+          advanced: submitted.advanced,
+        });
       } catch (err) {
         setVerdict({
-          status: 'error',
-          message: err instanceof Error ? err.message : 'Falha ao registrar o progresso',
+          status: "error",
+          message:
+            err instanceof Error
+              ? err.message
+              : "Falha ao registrar o progresso",
         });
       }
     })();
-  }, [isInsufficient, token, insecureKeys, backspaceCount]);
+  }, [isInsufficient, token, lessonId, insecureKeys, backspaceCount]);
 
   if (isInsufficient) {
     return (
       <div className="flex flex-col items-center gap-6 py-16 text-center">
         <h2 className="text-2xl font-bold">Sessão muito curta</h2>
         <p className="text-ink-muted">
-          A sessão teve dados insuficientes para calcular métricas (tempo &lt; 3s ou menos de 5 caracteres).
+          A sessão teve dados insuficientes para calcular métricas (tempo &lt;
+          3s ou menos de 5 caracteres).
         </p>
-        <button type="button" onClick={onBack} className="rounded-md bg-primary px-4 py-2 text-white">
+        <button
+          type="button"
+          onClick={onBack}
+          className="rounded-md bg-primary px-4 py-2 text-white"
+        >
           Voltar às lições
         </button>
       </div>
     );
   }
 
-  // RN26 - o motor pedagógico já decide o avanço (reason 'advance'). A presença de
-  // erros finais não bloqueia o botão azul de avançar; a mensagem apenas orienta.
+  // RN26(d)/RN40 - o motor pedagógico decide o avanço (reason 'advance') e o
+  // SubmitProgressCard confirma que a fronteira se moveu (advanced). O botão
+  // azul só renderiza quando ambos valem — concluir lição de revisão não avança.
   const canAdvance =
-    verdict.status === 'ready' && verdict.reason === 'advance' && verdict.lesson !== null;
+    verdict.status === "ready" &&
+    verdict.reason === "advance" &&
+    verdict.advanced === true &&
+    verdict.lesson !== null;
 
   return (
     <div className="flex flex-col items-center gap-6 py-12 text-center">
@@ -378,69 +469,112 @@ function CompletedPanel({
       <div className="grid w-full max-w-2xl grid-cols-2 gap-3 sm:grid-cols-3">
         <ResultMetric label="PPM líquida" value={formatNumber(m.netWpm)} />
         <ResultMetric label="PPM bruta" value={formatNumber(m.grossWpm)} />
-        <ResultMetric label="Precisão" value={`${formatDecimal(m.accuracy * 100)}%`} />
+        <ResultMetric
+          label="Precisão"
+          value={`${formatDecimal(m.accuracy * 100)}%`}
+        />
         <ResultMetric label="Caracteres" value={String(m.charactersTyped)} />
-        <ResultMetric label="Erros corrigidos" value={String(m.correctedErrors)} />
-        <ResultMetric label="Erros finais" value={String(m.finalUncorrectedErrors)} />
+        <ResultMetric
+          label="Erros corrigidos"
+          value={String(m.correctedErrors)}
+        />
+        <ResultMetric
+          label="Erros finais"
+          value={String(m.finalUncorrectedErrors)}
+        />
       </div>
 
-      {verdict.status === 'checking' && <p className="text-sm text-ink-subtle">Registrando seu progresso…</p>}
+      {verdict.status === "checking" && (
+        <p className="text-sm text-ink-subtle">Registrando seu progresso…</p>
+      )}
 
-      {verdict.status === 'error' && (
+      {verdict.status === "error" && (
         <p className="text-sm text-danger">{verdict.message}</p>
       )}
 
-      {verdict.status === 'ready' && verdict.reason === 'complete' && (
+      {verdict.status === "ready" && verdict.reason === "complete" && (
         <p className="max-w-md text-sm text-ink-muted">
-          Parabéns! Você concluiu todo o currículo. Cada vencedor da jornada é você.
+          Parabéns! Você concluiu todo o currículo. Cada vencedor da jornada é
+          você.
         </p>
       )}
 
-      {verdict.status === 'ready' && verdict.reason === 'pause_discomfort' && (
+      {verdict.status === "ready" && verdict.reason === "pause_discomfort" && (
         <p className="max-w-md text-sm text-ink-muted">
-          Desconforto sinalizado anteriormente: dê uma pausa, alongue e hidrate-se antes de retomar o treino.
+          Desconforto sinalizado anteriormente: dê uma pausa, alongue e
+          hidrate-se antes de retomar o treino.
         </p>
       )}
 
-      {verdict.status === 'ready' &&
-        verdict.reason === 'advance' &&
+      {verdict.status === "ready" &&
+        verdict.reason === "advance" &&
+        verdict.advanced === true &&
         m.finalUncorrectedErrors === 0 && (
           <p className="max-w-md text-sm text-ink-muted">
-            Excelente! Você concluiu a lição sem erros finais e atingiu o critério de avanço.
+            Excelente! Você concluiu a lição sem erros finais e atingiu o
+            critério de avanço.
           </p>
         )}
 
-      {verdict.status === 'ready' &&
-        (verdict.reason === 'repeat' || verdict.reason === 'vary') && (
+      {verdict.status === "ready" &&
+        (verdict.reason === "repeat" || verdict.reason === "vary") && (
           <p className="max-w-md text-sm text-ink-muted">
-            Boa tentativa! Você precisa reduzir a quantidade de backspaces em relação à sessão anterior para
-            avançar. {verdict.reason === 'vary' ? 'Vamos variar um pouco o exercício antes de repetir.' : 'Repita a lição com mais atenção.'}
+            Boa tentativa! Você precisa reduzir a quantidade de backspaces em
+            relação à sessão anterior para avançar.{" "}
+            {verdict.reason === "vary"
+              ? "Vamos variar um pouco o exercício antes de repetir."
+              : "Repita a lição com mais atenção."}
           </p>
         )}
 
-      {verdict.status === 'ready' && verdict.reason === 'advance' && m.finalUncorrectedErrors > 0 && (
-        <p className="max-w-md text-sm text-ink-muted">
-          A lição avançou, mas ainda ficaram {String(m.finalUncorrectedErrors)} {m.finalUncorrectedErrors === 1 ? 'erro final' : 'erros finais'}. Recomendamos repeti-la
-          para consolidar.
-        </p>
-      )}
+      {verdict.status === "ready" &&
+        verdict.reason === "advance" &&
+        verdict.advanced === true &&
+        m.finalUncorrectedErrors > 0 && (
+          <p className="max-w-md text-sm text-ink-muted">
+            A lição avançou, mas ainda ficaram{" "}
+            {String(m.finalUncorrectedErrors)}{" "}
+            {m.finalUncorrectedErrors === 1 ? "erro final" : "erros finais"}.
+            Recomendamos repeti-la para consolidar.
+          </p>
+        )}
+
+      {verdict.status === "ready" &&
+        verdict.reason === "advance" &&
+        verdict.advanced === false && (
+          <p className="max-w-md text-sm text-ink-muted">
+            Lição de revisão concluída: a lição praticada ficava atrás da
+            fronteira do currículo, então a fronteira não mudou. Repita a lição
+            para reforçar ou volte às lições para seguir a sequência.
+          </p>
+        )}
 
       <div className="flex flex-wrap items-center justify-center gap-3">
-        {verdict.status === 'ready' && canAdvance && verdict.lesson !== null && (
-          <button
-            type="button"
-            onClick={() => onAdvanceLesson(verdict.lesson as LessonDTO)}
-            className="rounded-md bg-primary px-4 py-2 font-medium text-white"
-          >
-            Avançar
-          </button>
-        )}
-        {verdict.status === 'ready' && (canAdvance || verdict.reason === 'repeat' || verdict.reason === 'vary' || (verdict.reason === 'advance' && !canAdvance)) && (
-          <button type="button" onClick={onRepeatLesson} className="rounded-md bg-primary px-4 py-2 text-white">
-            Repetir lição
-          </button>
-        )}
-        {(verdict.status === 'error' || verdict.status === 'ready') && (
+        {verdict.status === "ready" &&
+          canAdvance &&
+          verdict.lesson !== null && (
+            <button
+              type="button"
+              onClick={() => onAdvanceLesson(verdict.lesson as LessonDTO)}
+              className="rounded-md bg-primary px-4 py-2 font-medium text-white"
+            >
+              Avançar
+            </button>
+          )}
+        {verdict.status === "ready" &&
+          (canAdvance ||
+            verdict.reason === "repeat" ||
+            verdict.reason === "vary" ||
+            (verdict.reason === "advance" && !canAdvance)) && (
+            <button
+              type="button"
+              onClick={onRepeatLesson}
+              className="rounded-md bg-primary px-4 py-2 text-white"
+            >
+              Repetir lição
+            </button>
+          )}
+        {(verdict.status === "error" || verdict.status === "ready") && (
           <button
             type="button"
             onClick={onBack}
@@ -454,7 +588,13 @@ function CompletedPanel({
   );
 }
 
-function ResultMetric({ label, value }: { label: string; value: string }): ReactNode {
+function ResultMetric({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}): ReactNode {
   const help = getMetricHelp(label);
   return (
     <div className="rounded-lg bg-surface-1 px-3 py-3">
@@ -468,7 +608,9 @@ function ResultMetric({ label, value }: { label: string; value: string }): React
 }
 
 function formatNumber(value: number): string {
-  return Math.round(value * 10) / 10 === value ? String(Math.round(value)) : (Math.round(value * 10) / 10).toFixed(1);
+  return Math.round(value * 10) / 10 === value
+    ? String(Math.round(value))
+    : (Math.round(value * 10) / 10).toFixed(1);
 }
 
 function formatDecimal(value: number): string {
@@ -479,5 +621,5 @@ function formatDuration(ms: number): string {
   const totalSeconds = Math.floor(ms / 1000);
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
-  return `${minutes}:${String(seconds).padStart(2, '0')}`;
+  return `${minutes}:${String(seconds).padStart(2, "0")}`;
 }

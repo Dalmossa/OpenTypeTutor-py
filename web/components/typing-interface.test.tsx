@@ -8,14 +8,15 @@ import { KEY_HINT_TIMEOUT_MS } from "@/lib/typing-hints";
 import type { LessonDTO } from "@/models/lesson";
 import type { SubmitSessionResponseDTO } from "@/models/session";
 
-const { getNextLessonMock } = vi.hoisted(() => ({
+const { getNextLessonMock, submitProgressCardMock } = vi.hoisted(() => ({
   getNextLessonMock: vi.fn(),
+  submitProgressCardMock: vi.fn(),
 }));
 
 vi.mock("@/controllers", () => ({
   createControllers: () => ({
     pedagogical: {
-      submitProgressCard: vi.fn().mockResolvedValue(undefined),
+      submitProgressCard: submitProgressCardMock,
       getNextLesson: getNextLessonMock,
     },
   }),
@@ -115,6 +116,11 @@ function makeSession(overrides: PartialSession = {}): UseTypingSessionResult {
 
 beforeEach(() => {
   getNextLessonMock.mockReset();
+  submitProgressCardMock.mockReset();
+  submitProgressCardMock.mockResolvedValue({
+    progressCard: null,
+    advanced: true,
+  });
 });
 
 afterEach(() => {
@@ -192,6 +198,42 @@ describe("CompletedPanel — RN26 (botão azul Avançar)", () => {
     expect(
       screen.queryByRole("button", { name: "Avançar" }),
     ).not.toBeInTheDocument();
+  });
+
+  it("RN26(d) - lição de revisão (advanced:false) não renderiza Avançar nem mensagem de avanço", async () => {
+    submitProgressCardMock.mockResolvedValue({
+      progressCard: null,
+      advanced: false,
+    });
+    getNextLessonMock.mockResolvedValue({
+      lesson: makeLesson({ id: "8" }),
+      shouldVaryExercise: false,
+      reason: "advance",
+    });
+    render(
+      <TypingInterface
+        session={makeSession({ result: makeResult(0) })}
+        onBack={vi.fn()}
+        onRepeatLesson={vi.fn()}
+        onAdvanceLesson={vi.fn()}
+      />,
+    );
+    expect(
+      await screen.findByText(/Lição de revisão concluída/),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(/Excelente! Você concluiu a lição sem erros finais/),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Avançar" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Repetir lição" }),
+    ).toBeInTheDocument();
+    expect(submitProgressCardMock).toHaveBeenCalledWith(
+      expect.objectContaining({ lessonId: "7" }),
+      "token",
+    );
   });
 });
 

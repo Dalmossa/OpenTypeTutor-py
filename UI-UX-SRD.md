@@ -109,7 +109,7 @@ Card de 3 colunas (`feature-card`):
 Sequência de 4 passos (linha do tempo):
 
 1. **Você digita** — sessões guiadas em fases pedagógicas.
-2. **O sistema observa** — por tecla: acurácia, latência, recência (WeakKeyScore).
+2. **O sistema observa** — por tecla: precisão, latência, atividade recente (WeakKeyScore).
 3. **O treino se adapta** — lições de reforço nas teclas que precisam de prática.
 4. **Você evolui e mensura** — dashboard, mapa de calor e proximidade da maestria.
 
@@ -208,7 +208,7 @@ Já implementado (TASK-098 + melhorias). Especificação de conteúdo:
 
 - Teclado virtual espelhando o físico (RN38 — numpad realista; tecla morta; acentos).
 - Dica visual da tecla aguardada pós `KEY_HINT_TIMEOUT_MS` (RN39; `web/lib/typing-hints.ts`).
-- Barra de progresso da lição + live stats discretos (PPM bruta/líquida, acurácia, latência, erros — já existe via `useTypingSession`).
+- Barra de progresso da lição + live stats discretos (PPM bruta/líquida, precisão, latência, erros — já existe via `useTypingSession`).
 - Controles: Pausar/Retomar sempre disponíveis (RN40).
 - **Veredito do motor, não da UI**: "Avançar" (azul) se o motor decidir `advance`; "Repetir lição"/"Voltar às lições" nos demais motivos; erros finais orientam a **mensagem**, nunca escondem o botão (RN40).
 
@@ -220,7 +220,7 @@ Já implementado (TASK-098 + melhorias). Especificação de conteúdo:
 ### 6.6 Progresso (`/app/progress` — RN31)
 
 - Cartão de progresso curricular (nível, lições completadas, última sessão).
-- Teclas fracas ordenadas por WeakKeyScore + acurácia, com badges de mastery (implementado, TASK-077).
+- Teclas fracas ordenadas por WeakKeyScore + precisão, com badges de mastery (implementado, TASK-077).
 - **Reset**: "Recomeçar do zero" com diálogo de confirmação pt-BR (implementado, TASK-086). Convite a reconsiderar antes de ação destrutiva; após reset, mensagem de sucesso e retorno ao estado limpo.
 
 ### 6.7 Perfil (`/app/profile`)

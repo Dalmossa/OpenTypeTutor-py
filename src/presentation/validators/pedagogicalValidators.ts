@@ -1,13 +1,16 @@
-import { z } from 'zod';
+import { z } from "zod";
 
 export const nextLessonQuerySchema = z
   .object({
-    confirmsNoLookingAtKeyboard: z.enum(['true', 'false']).transform(v => v === 'true'),
+    confirmsNoLookingAtKeyboard: z
+      .enum(["true", "false"])
+      .transform((v) => v === "true"),
   })
   .strict();
 
 export const submitProgressCardSchema = z
   .object({
+    lessonId: z.string().min(1),
     insecureKeys: z.array(z.string().min(1)),
     discomfortReported: z.boolean(),
     discomfortDetail: z.string().min(1).max(500).optional(),

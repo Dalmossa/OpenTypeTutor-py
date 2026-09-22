@@ -731,7 +731,7 @@ Regras de dependência da apresentação:
 **Decisão:**
 
 1. **Remover o cliente antigo definitivamente**: pasta `desktop/` (Python/customtkinter), `Prompt-Tkinter-Agent-v2.md` (spec morta do agente) e os resquícios Python do repositório (`.gitignore`, `.pytest_cache`). A **UI web (Next.js) passa a ser o único frontend** do produto.
-2. **Paridade de serialização extinta com ele**: o `ParityWebDesktop.test.ts` (TASK-081/084) perdeu o segundo ator; as regressões de composição web que ele protegia são preservadas em `SubmitTypingSessionCompose.test.ts` (compose correto ≠ infla acurácia; compose errado = INCORRECT; `DEAD_KEY_COMPOSE`/`CORRECTION` fora da latência média).
+2. **Paridade de serialização extinta com ele**: o `ParityWebDesktop.test.ts` (TASK-081/084) perdeu o segundo ator; as regressões de composição web que ele protegia são preservadas em `SubmitTypingSessionCompose.test.ts` (compose correto ≠ infla precisão; compose errado = INCORRECT; `DEAD_KEY_COMPOSE`/`CORRECTION` fora da latência média).
 3. **Especificações atualizadas**: PRD/SRD/AGENTS/UI-UX-SRD/BACKLOG reescritas para o cliente web único (protocolo MVC — ADR-018 — vigora no web). Nenhuma RN/RNF do PRD é alterada — as regras de domínio não dependiam de cliente.
 4. **Este ADR supera** as partes dos ADRs 016/017/018/019/020 que tratavam de "dois clientes" ou descreviam o cliente antigo como componente ativo; seus registros históricos permanecem como contexto da época.
 
