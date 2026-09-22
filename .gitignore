@@ -20,6 +20,10 @@ everything-claude-code/
 .firecrawl/
 .opencode/
 
+# Artefatos de sessao (prompts usados no desenvolvimento, nao sao produto)
+Prompt-Pedagogico.md
+Prompt_Eng_Senior.md
+
 # Material de referência (não faz parte do código)
 *.zip
 *.pdf
