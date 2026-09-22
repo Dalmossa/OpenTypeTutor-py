@@ -21,8 +21,8 @@ Público-alvo: engenheiros, agentes de IA e revisores que precisam de um mapa ú
 - Backend REST API (Node.js/TypeScript, Clean Architecture — ADR-003).
 - Persistência local SQLite (ADR-014), sem integrações externas remotas nesta versão.
 - Autenticação JWT (access `15m` + refresh `30d` com rotação — ADR-010, ADR-013), sem OAuth (fora de escopo).
-- Fora de escopo desta versão: frontend (`desktop/` legado e a UI web da Fase 8 — ver abaixo), OAuth, recuperação de senha, migração SQLite→PostgreSQL (gatilhos no ADR-013/ADR-014).
-- **Apresentação de cliente:** os clientes de interface (desktop customtkinter e a futura UI Next.js, Fase 8) seguem o **protocolo MVC** (ADR-018): `models/` (DTOs), `views/` (telas/componentes), `controllers/` (orquestração), `services/` (transporte REST). O SRD modela o backend e o contrato HTTP; a estrutura interna de apresentação é regida pelo ADR-018 e não é duplicada aqui.
+- Fora de escopo desta versão: OAuth, recuperação de senha, migração SQLite→PostgreSQL (gatilhos no ADR-013/ADR-014). O antigo cliente desktop (customtkinter/Python) foi removido — o frontend é a UI web (Next.js, ADR-022).
+- **Apresentação de cliente:** a UI web (Next.js; único frontend após ADR-022) segue o **protocolo MVC** (ADR-018): `views/` (componentes), `controllers/` (orquestração), `services/` (transporte REST via `ApiClient`). O SRD modela o backend e o contrato HTTP; a estrutura interna de apresentação é regida pelo ADR-018 e não é duplicada aqui.
 
 ### 1.3 Leitores e navegação
 
@@ -73,7 +73,7 @@ Lista completa no **PRD §2.3** (obrigatórios "deve" e desejáveis "pode"). Aqu
 _Resumo; detalhes em PRD §3–§4 e ADR-003/ADR-005._
 
 - Clean Architecture em camadas `presentation → application → domain ← infrastructure` (regra de dependência estrita, enforcement por `eslint-plugin-boundaries`).
-- Clientes de apresentação (desktop e web) seguem o **protocolo MVC** (ADR-018) — Views→Controllers→Services→REST; nenhuma RN é reimplementada no cliente (RN14/RN16/RN17/RN22 permanecem no backend).
+- A apresentação web (único frontend — ADR-022) segue o **protocolo MVC** (ADR-018) — Views→Controllers→Services→REST; nenhuma RN é reimplementada no cliente (RN14/RN16/RN17/RN22 permanecem no backend).
 - Domínio puro, sem dependências externas (RNF07); dependências por **portas** (`I*Repository`, `ITokenService` — ADR-005).
 - Autenticação: JWT Bearer com refresh token rotativo (ADR-010, ADR-013).
 - Persistência: SQLite via TypeORM (ADR-014).

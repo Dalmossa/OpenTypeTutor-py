@@ -394,7 +394,7 @@ Espelho de cada regra de domínio na camada web (ADR-018 — a UI **reflete**, n
 
 ## 16. Fora de Escopo (v1.0 da UI)
 
-- Dashboard do desktop (`customtkinter`) — web-first (ADR-020 §3).
+- Antigo cliente desktop (`customtkinter`) — removido (ADR-022); a UI web é o único frontend.
 - OAuth/login social e recuperação de senha (fora de escopo do produto — ADR-013 §13.4).
 - Interações avançadas de gamificação (placares, streak social) — **não** pertencem à identidade do produto (§1.5).
 - Páginas "Preços" ou "Planos" — não há planos no produto.

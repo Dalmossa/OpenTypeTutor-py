@@ -506,7 +506,7 @@ Cada ADR documenta uma decisão técnica pontual. Formato padronizado: **Número
 **Responsável:** Dalmo Pereira
 **Status:** Aceito
 
-**Contexto:** O desktop (customtkinter/Python) tem latência percebida de **carregamento** (bootstrap lento), não por tecla — confirmado na medição e na triagem do código (`desktop/src/opentype_tutor/views/screens/session_screen.py` bufferiza keystrokes e submete em lote, então a latência não é round-trip por tecla). A RN06/RNF06 já define o objetivo de latência de submit. A medição mostrou que o gargalo é o bootstrap SPA/desktop.
+**Contexto:** O cliente desktop (customtkinter/Python, removido em ADR-022) tinha latência percebida de **carregamento** (bootstrap lento), não por tecla — confirmado na medição e na triagem do código (bufferizava keystrokes e submetia em lote, então a latência não era round-trip por tecla). A RN06/RNF06 já define o objetivo de latência de submit. A medição mostrou que o gargalo era o bootstrap do cliente.
 
 **Decisão:** Migrar a apresentação para **Next.js** (App Router, TS, consumindo o REST existente — o domínio/use cases permanecem no backend, a RN14 de idempotência continua valendo; o navegador **não reimplementa** regra de domínio). E, no backend, migrar **Express → Nest.js**, **reconciliando o ADR-002** (linha 56), que havia descartado o NestJS por "estrutura opinativa que compete com a Clean Architecture do PRD".
 
@@ -535,11 +535,11 @@ Cada ADR documenta uma decisão técnica pontual. Formato padronizado: **Número
 
 **Status:** Aceito · **Data:** 2026-09-14 · **Decisão:** **A manutenção das regras de domínio**
 
-**Contexto:** A decisão ADR-016 estabeleceu Next.js (UI) + Nest.js (back-end) consumindo o REST de `src/`, garantindo que o navegador **não reimplementa** regra de domínio (RN14 idempotência, RN22 insufficient-data) — o domínio permanece no back-end, reutilizado via REST. O que permanece **implícito** (e este ADR torna **explícito, obrigatório e rastreável**) é a política de implementação: o projeto já é, de fato, **POO (Programação Orientada a Objetos)** — `src/application/use-cases/*.ts` são classes, `src/domain/entities`/`value-objects` são classes, `desktop/src/opentype_tutor/models/*.py` usam herança (ex.: `BaseScreen` subclass `CTkFrame`), e os ports `I*Repository`/`I*Service` (ADR-005) são contratos de classes que Clean Architecture injeta por dependência. Essa orientação a objetos precisa ser **política escrita** da Fase 8 — não uma preferência de estilo de um único desenvolvedor.
+**Contexto:** A decisão ADR-016 estabeleceu Next.js (UI) + Nest.js (back-end) consumindo o REST de `src/`, garantindo que o navegador **não reimplementa** regra de domínio (RN14 idempotência, RN22 insufficient-data) — o domínio permanece no back-end, reutilizado via REST. O que permanece **implícito** (e este ADR torna **explícito, obrigatório e rastreável**) é a política de implementação: o projeto já é, de fato, **POO (Programação Orientada a Objetos)** — `src/application/use-cases/*.ts` são classes, `src/domain/entities`/`value-objects` são classes, e os ports `I*Repository`/`I*Service` (ADR-005) são contratos de classes que Clean Architecture injeta por dependência. Essa orientação a objetos precisa ser **política escrita** da Fase 8 — não uma preferência de estilo de um único desenvolvedor.
 
 **Decisão:**
 
-- **POO é obrigatório** em toda a Fase 8: UI web (Next.js — componentes de interface como classes de camada de apresentação que consomem o REST), back-end (Nest.js — controllers/services como classes injetando os **mesmos** use cases/ports já POO de `src/`), e desktop legado (já POO, inalterado).
+- **POO é obrigatório** em toda a Fase 8: UI web (Next.js — componentes de interface como camada de apresentação que consomem o REST), back-end (Nest.js — controllers/services como classes injetando os **mesmos** use cases/ports já POO de `src/`).
 - **Reuso de código em vez de reescrita (DRY aplicado a camadas):** a migração **reutiliza** o domínio e os use cases existentes — move/adapta, **nunca reescreve** — respeitando ADR-016 (navegador não reimplementa RN), ADR-005 (ports) e a barreira de dependência do `CONSTITUTION.md`.
 - O back-end Nest **injeta as mesmas classes** que o Express atual (mesmos use cases, mesmos ports, mesmas entidades) — a troca Express→Nest é uma troca de camada de infraestrutura/framework, **não** uma reimplementação do domínio (consistente com ADR-002 → ADR-016 reconcliliação).
 - **Fora de escopo desta política:** reescrever regras de negócio no navegador (proibido — RN14/RN22 permanecem no back-end; ADR-016).
@@ -556,20 +556,20 @@ Cada ADR documenta uma decisão técnica pontual. Formato padronizado: **Número
 
 ---
 
-## ADR-018 — MVC como protocolo da camada de apresentação (desktop e web)
+## ADR-018 — MVC como protocolo da camada de apresentação (cliente web)
 
 **Data:** 2026-09-15
 **Responsável:** Dalmo Pereira
-**Status:** Aceito
+**Status:** Aceito · _Atualizado em ADR-022 (cliente desktop removido; protocolo vigora no único frontend web)_
 
-**Contexto:** A arquitetura documentada cobre o backend (Clean Architecture, ADR-003) e a política de implementação da Fase 8 (POO + reuso, ADR-017), mas o padrão arquitetural da **camada de apresentação** nunca foi explicitado. O desktop (`desktop/src/opentype_tutor/`) já implementa, de fato, a tríade MVC + camada de serviços: `models/` (Pydantic, espelho dos DTOs), `views/` (telas e componentes customtkinter), `controllers/` (orquestração de eventos e estado, herdam `BaseController`), `services/` (comunicação REST via `api_client`). O `SRD §1.2` trata `desktop/` como "outro produto", e a Fase 8 (ADR-016) introduz um novo frontend **Next.js** sem padrão de apresentação definido — a forma de implementar a UI ficaria a cargo de cada agente/desenvolvedor.
+**Contexto:** A arquitetura documentada cobre o backend (Clean Architecture, ADR-003) e a política de implementação da Fase 8 (POO + reuso, ADR-017), mas o padrão arquitetural da **camada de apresentação** nunca foi explicitado. O antigo cliente desktop (removido em ADR-022) implementava de fato a tríade MVC + camada de serviços (`models` espelhando os DTOs, `views`, `controllers`, `services` via api_client). O `SRD §1.2` tratava `desktop/` como "outro produto", e a Fase 8 (ADR-016) introduz um novo frontend **Next.js** sem padrão de apresentação definido — a forma de implementar a UI ficaria a cargo de cada agente/desenvolvedor.
 
-**Decisão:** Adotar **MVC como protocolo obrigatório da camada de apresentação do OpenType Tutor**, nos dois clientes — em linha com o que o desktop já implementa:
+**Decisão:** Adotar **MVC como protocolo obrigatório da camada de apresentação do OpenType Tutor** — em linha com o que o cliente desktop já implementava e que a UI web agora segue como único frontend:
 
-- **Model** — representações de dados da UI (DTOs), espelho dos contratos REST, sem entidades de domínio. No desktop: `models/*.py` (Pydantic). No Next.js (Fase 8): tipos TS e estado do cliente.
-- **View** — renderização e captura de eventos de UI. No desktop: `views/` (screens, components, theme). No Next.js: páginas e componentes React.
-- **Controller** — orquestração de eventos de UI, validação de apresentação e coordenação com os serviços de API; **nunca contém regra de negócio de domínio**. No desktop: `controllers/*.py` (herdam `BaseController`, compartilham `AppState`). No Next.js: handlers de página/ação consumindo os serviços REST.
-- **Services (camada auxiliar de transporte)** — comunicação HTTP com o backend REST e mapeamento de erros; isolam os controllers de detalhes de transporte. No desktop: `services/*.py` (AuthService, LessonService, SessionService, ProgressService, ApiClient).
+- **Model** — representações de dados da UI (DTOs), espelho dos contratos REST, sem entidades de domínio. No Next.js: tipos TS e estado do cliente (`web/models/`).
+- **View** — renderização e captura de eventos de UI. No Next.js: páginas e componentes React (`web/app/`).
+- **Controller** — orquestração de eventos de UI, validação de apresentação e coordenação com os serviços de API; **nunca contém regra de negócio de domínio**. No Next.js: `web/controllers/` consumindo os serviços REST.
+- **Services (camada auxiliar de transporte)** — comunicação HTTP com o backend REST e mapeamento de erros; isolam os controllers de detalhes de transporte (`web/lib/api-client.ts`).
 
 Regras de dependência da apresentação:
 
@@ -577,24 +577,24 @@ Regras de dependência da apresentação:
 2. **Nenhuma RN é reimplementada na apresentação** — RN14 (idempotência), RN22 (insufficient-data), RN16/RN17 (auth/posse) permanecem no backend, consumidas via REST (ADR-016/017).
 3. **Modelos da UI são DTOs**, nunca entidades de domínio — o domínio continua no backend (ADR-003/005).
 
-**Justificativa:** MVC é o padrão canônico de aplicações com interface (GUI e web page-driven), isola renderização de estado e de transporte — exatamente a estrutura que o desktop já adota de fato. Registrá-lo elimina a divergência código↔documento (hoje inexistente nos docs) e dá à Fase 8 um padrão explícito: a UI Next não fica "livre" para reimplementar regras ou misturar transporte com renderização. É complementar, não substituto, à Clean Architecture do backend: o padrão se aplica **dentro** da camada de apresentação.
+**Justificativa:** MVC é o padrão canônico de aplicações com interface (GUI e web page-driven), isola renderização de estado e de transporte — a estrutura que o cliente web deve adotar. Registrá-lo elimina a divergência código↔documento e dá à Fase 8 um padrão explícito: a UI Next não fica "livre" para reimplementar regras ou misturar transporte com renderização. É complementar, não substituto, à Clean Architecture do backend: o padrão se aplica **dentro** da camada de apresentação.
 
 **Alternativas consideradas:**
 
-- Manter implícito como está — descartado: a Fase 8 cria um segundo cliente sem padrão definido, e a revisão de código não teria base formal para exigir separação View/Controller.
+- Manter implícito como está — descartado: a Fase 8 cria o frontend web sem padrão definido, e a revisão de código não teria base formal para exigir separação View/Controller.
 - MVVM/Bloc/Redux como padrão da Fase 8 — adiado/rejeitado: acrescenta infraestrutura de estado reativo desnecessária para um cliente consumidor de REST; se o estado do cliente ganhar complexidade distribuída, avalia-se adicionar camada de estado sem substituir o MVC.
-- MVP (Presentador) — rejeitado: diverge do que o desktop já implementa; padronizar MVC mantém convergência entre os dois clientes e o ADR-017 (POO).
+- MVP (Presentador) — rejeitado: fora do escopo de um cliente consumidor de REST; o MVC é suficiente e alinhado ao ADR-017 (POO).
 
 **Consequências:**
 
-- (+) Documentação da apresentação alinhada ao código atual do desktop (estrutura já existe — sem refactor necessário).
+- (+) Documentação da apresentação alinhada ao código atual do cliente web (o padrão já está aplicado em `web/controllers/` + `web/models/` + `web/app/`).
 - (+) Fase 8 passa a ter contrato de implementação para View/Controller/Services no Next.js (rastreado em TASK-083).
-- (+) Revisão (ADR/CODE REVIEW) passa a checar a regra "Views→Controllers→Services; sem RN na apresentação" em qualquer cliente.
-- (−) O termo "protocolo MVC" deve ser usado de forma consistente nos dois clientes; exige disciplina para não deixar a UI Next evoluir para código monolítico em componentes.
+- (+) Revisão (ADR/CODE REVIEW) passa a checar a regra "Views→Controllers→Services; sem RN na apresentação" no cliente web.
+- (−) O termo "protocolo MVC" deve ser usado de forma consistente no cliente web; exige disciplina para não deixar a UI Next evoluir para código monolítico em componentes.
 
 **Referências:**
 
-- `ADR.md` ADR-016 (migração web), ADR-017 (POO/reuso), ADR-003/005 (Clean Architecture — backend permanece); `SRD.md` §1.2/§3; `desktop/src/opentype_tutor/` (estrutura `models/views/controllers/services`); `BACKLOG.md` TASK-083; `PRD.md` RN14, RN16/RN17, RN22
+- `ADR.md` ADR-016 (migração web), ADR-017 (POO/reuso), ADR-022 (remoção do cliente desktop), ADR-003/005 (Clean Architecture — backend permanece); `SRD.md` §1.2/§3; `BACKLOG.md` TASK-083; `PRD.md` RN14, RN16/RN17, RN22
 
 ---
 
@@ -606,7 +606,7 @@ Regras de dependência da apresentação:
 
 **Contexto:** O PRD já trata saúde como regra de domínio (RN24 check-in ergonômico, RN28 regra de segurança por desconforto, RN30 lembrete de pausa no fechamento), mas a prática de digitação não é **pausada por tempo**: o usuário pode encadear lições indefinidamente, e a orientação "pausas a cada 30–60 min" é apenas texto. O feedback de produto pede um pacing mensurável: a cada 15 minutos de prática ativa, uma pausa mínima de 3 minutos (alongar os braços, beber água, ativar a circulação) antes de iniciar a próxima lição — com foco em condicionamento físico e concentração. **Requisito decidido em conjunto:** a lição em curso nunca é interrompida; se o bloco de 15 min estourar no meio de uma lição, ela conclui normalmente e a pausa vale a partir da conclusão.
 
-**Decisão:** Introduzir a **RN33** (PRD §27), implementada como política de domínio no backend e consumida via REST pelos dois clientes (desktop e web):
+**Decisão:** Introduzir a **RN33** (PRD §27), implementada como política de domínio no backend e consumida via REST pelo cliente web (único frontend — ADR-022):
 
 - **Domínio:** nova entidade `PracticePacingState` (por `userId`): `accumulatedActiveMs` (desde o início do bloco) e `lastSessionEndedAt` (fim da última sessão completada). Lógica pura: `recordCompletedSession`, `isBreakRequired(now)`, `breakRemainingMs(now)`, `startNewBlock(now)` — todo relógio injetado (testável sem espera real).
 - **Parâmetros:** `PRACTICE_BLOCK_DURATION_MS = 900000` e `MIN_BREAK_DURATION_MS = 180000` centralizados em `domain/config/adaptiveParams.ts` (ADR-006 — nunca literais inline).
@@ -615,11 +615,11 @@ Regras de dependência da apresentação:
 - **Consulta para a UI:** `GetPracticeStatus` em `GET /me/practice-status` devolve `{ accumulatedActiveMs, practiceBlockMs, minBreakMs, breakRequired, breakRemainingMs }` — os clientes **não** reimplementam a regra nem hardcodam os limites; apenas cronometram a pausa restante (ADR-018: nenhuma RN na apresentação).
 - **Bloco novo após pausa:** ao iniciar uma sessão permitida com `accumulatedActiveMs ≥ bloco` (pausa já cumprida), o acumulador zera — nova sequência 15:3. Contagem por dia calendário local, reiniciada automaticamente (o acumulador vive no estado persistido e é comparado ao relógio).
 
-**Justificativa:** micro-pausas curtas reduzem fadiga e desconforto musculoesquelético e o leve descanso favorece a retomada da atenção — alinha-se à metodologia ergonômica já assumida (NR17, RN24/RN28). Colocar a regra no domínio (e não no cliente) permite reuso entre desktop e web, teste determinístico (TDD) e rastreabilidade — a UI apenas reflete o estado; a decisão de health/pacing permanece no backend, coerente com ADR-018 (nenhuma RN na apresentação).
+**Justificativa:** micro-pausas curtas reduzem fadiga e desconforto musculoesquelético e o leve descanso favorece a retomada da atenção — alinha-se à metodologia ergonômica já assumida (NR17, RN24/RN28). Colocar a regra no domínio (e não no cliente) permite reuso pelo cliente via REST, teste determinístico (TDD) e rastreabilidade — a UI apenas reflete o estado; a decisão de health/pacing permanece no backend, coerente com ADR-018 (nenhuma RN na apresentação).
 
 **Alternativas consideradas:**
 
-- Timer só no cliente (duplicado em desktop e web) — descartado: política em dois lugares sem rastreio nem teste, divergência silenciosa e viola o espírito do ADR-018.
+- Timer só no cliente — descartado: política fora do domínio sem rastreio nem teste, divergência silenciosa e viola o espírito do ADR-018.
 - Backend apenas valida, clientes cronometram o 15 min — o requisito em discussão foi a favor do backend mandar o acumulado e o tempo restante, mantendo os clientes simples e consistentes.
 - Interromper a lição ao estourar o bloco ("Dentro da lição") — descartado: o requisito decide que a lição em curso sempre conclui; interromper geraria sessão incompleta e adicionaria transições de estado desnecessárias (`TypingSession` só pausa por ação do usuário).
 
@@ -664,7 +664,7 @@ Regras de dependência da apresentação:
 - **Agregação sob demanda por request** (SQL `GROUP BY` sobre sessões na hora) — descartada: varredura O(histórico) por view por janela, custo cresce com o tempo, não atinge RNF11 no pior caso de 1 ano.
 - **Agregação em memória/cache** (LRU por usuário, invalidação no submit) — descartada: materialização simples + determinística no store é mais simples de manter, testar e re-gerar (reset de progresso RN31) do que invalidação de cache; RNF11 medida sem cache externo (mesmo espírito do RNF06).
 - **Chart.js / D3 / Nivo** — Chart.js: canvas, menos tipada no ecossistema TSR; D3 raw: verboso para 8 widgets; Nivo: camada sobre D3 com mais indireção. Recharts: SVG + declarativo, JSX-aligned com o codebase.
-- **Desktop (customtkinter) com gráficos** — fora do escopo da Fase 9: o painel avançado é web-first (ADR-016); o desktop mantém a tela estática de progresso atual.
+- **Cliente desktop com gráficos** — irrelevante após a descontinuação do desktop (ADR-022); o painel é exclusivamente web-first (ADR-016).
 
 **Consequências:**
 
@@ -717,3 +717,38 @@ Regras de dependência da apresentação:
 **Referências:**
 
 - `PRD.md` RN32/RN36 (§27), RNF09 (§28.1); `CONSTITUTION.md` §4 (arquitetura), §5 (SDD); `ADR.md` ADR-002 (stack mínima), ADR-016 (Next), ADR-018 (sem RN na apresentação), ADR-020 (dashboard web); `UI-UX-SRD.md` §8/§15/§16 (a alterar por este ADR); `DESIGN.md` (identidade — tokens, paletas, "Don'ts"); `BACKLOG.md` TASK-104
+
+---
+
+## ADR-022 — Descontinuação do cliente desktop: web como único frontend
+
+**Data:** 2026-09-21
+**Responsável:** Dalmo Pereira
+**Status:** Aceito
+
+**Contexto:** A Fase 8 (ADR-016) migrou a apresentação para a web (Next.js) e a Fase 9 (ADR-020/021) entregou no web toda a superfície do produto: dashboard (RN34–RN37), prática com dead key (RN38–RN40), perfil com ABNT2/US e fuso (TASK-104/105/106), temas claro/escuro (ADR-021) e pacing de prática (ADR-019). O cliente antigo (Python/customtkinter, `desktop/`) não recebia novas funcionalidades desde a migração e impunha custo de manutenção duplo — dois UIs para validar, divergências de serialização (TASK-081/084) e a superfície de "paridade" que só existia por causa dele.
+
+**Decisão:**
+
+1. **Remover o cliente antigo definitivamente**: pasta `desktop/` (Python/customtkinter), `Prompt-Tkinter-Agent-v2.md` (spec morta do agente) e os resquícios Python do repositório (`.gitignore`, `.pytest_cache`). A **UI web (Next.js) passa a ser o único frontend** do produto.
+2. **Paridade de serialização extinta com ele**: o `ParityWebDesktop.test.ts` (TASK-081/084) perdeu o segundo ator; as regressões de composição web que ele protegia são preservadas em `SubmitTypingSessionCompose.test.ts` (compose correto ≠ infla acurácia; compose errado = INCORRECT; `DEAD_KEY_COMPOSE`/`CORRECTION` fora da latência média).
+3. **Especificações atualizadas**: PRD/SRD/AGENTS/UI-UX-SRD/BACKLOG reescritas para o cliente web único (protocolo MVC — ADR-018 — vigora no web). Nenhuma RN/RNF do PRD é alterada — as regras de domínio não dependiam de cliente.
+4. **Este ADR supera** as partes dos ADRs 016/017/018/019/020 que tratavam de "dois clientes" ou descreviam o cliente antigo como componente ativo; seus registros históricos permanecem como contexto da época.
+
+**Justificativa:** um único frontend elimina a duplicação de manutenção, QA e divergência de serialização, mantendo o domínio (backend Clean Architecture, ADR-003/005) e o protocolo MVC (ADR-018) intactos. A web cobre 100% das funcionalidades que o antigo cliente entregava (RNF06/RNF11 medidos na Fase 8/9).
+
+**Alternativas consideradas:**
+
+- Manter o cliente antigo em manutenção mínima — descartado: sem novas features desde a migração e com borda de divergência de serialização (TASK-081/084), o custo de manter dois UIs supera o benefício; o usuário optou por produto web-first (ADR-016, Opção A).
+- Empaquetar o Next.js com Tauri (manter "app desktop") — descartado na decisão de distribuição (ADR-016 — Opção A: navegador; nenhuma instalação).
+
+**Consequências:**
+
+- (+) Repositório mais enxuto (−322 MB `desktop/`); um único frontend para validar, revisar e medir.
+- (+) Fim da superfície de paridade de serialização; regressões de compose preservadas em `SubmitTypingSessionCompose.test.ts`.
+- (−) Documento histórico (ADR-016/017/018 histórico) mantém referências ao cliente antigo como registro da época (ver nota de atualização no ADR-018).
+- (−) Usuários que dependiam do binário do cliente antigo precisam usar o navegador — escopo já decidido (ADR-016 Opção A).
+
+**Referências:**
+
+- `ADR.md` ADR-016 (migração web + distribuição Opção A), ADR-017 (POO/reuso), ADR-018 (MVC na apresentação — atualizado por este ADR), ADR-019/020/021 (features web-first); `PRD.md` §27, §28.1 (RN e RNFs inalteradas); `BACKLOG.md` TASK-107; `SRD.md` §1.2/§3; `AGENTS.md` (seção apresentação)

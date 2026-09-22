@@ -1,1 +1,0 @@
-# OpenType Tutor Desktop Frontend

@@ -51,7 +51,7 @@ src/
 
 ### Presentation clients follow MVC (ADR-018)
 
-- Clientes de UI (desktop `desktop/src/opentype_tutor/{models,views,controllers,services}` e a futura UI Next.js da Fase 8) seguem o **protocolo MVC**: `views/` → `controllers/` → `services/` → REST.
+- A UI (web Next.js; o antigo cliente desktop customtkinter foi removido — ADR-022) segue o **protocolo MVC**: `views/` → `controllers/` → `services/` → REST.
 - **Nenhuma RN no cliente** — RN14 (idempotência), RN22 (insufficient-data), RN16/17 (auth/posse) permanecem no backend; a apresentação só consome o REST.
 - Models de UI são DTOs, nunca entidades de domínio.
 
