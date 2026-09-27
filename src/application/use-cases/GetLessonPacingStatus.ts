@@ -1,7 +1,11 @@
 import type { IPracticePacingRepository } from "../../domain/repositories/IPracticePacingRepository.js";
+import type { IAdminSettingsRepository } from "../../domain/repositories/IAdminSettingsRepository.js";
 import { SessionId } from "../../domain/value-objects/SessionId.js";
-import { PracticePacingState } from "../../domain/entities/PracticePacingState.js";
-import { adaptiveParams } from "../../domain/config/adaptiveParams.js";
+import {
+  PracticePacingState,
+  type PacingParams,
+  toPacingParams,
+} from "../../domain/entities/PracticePacingState.js";
 import type {
   Clock,
   LessonPacingStatusDTO,
@@ -15,6 +19,7 @@ export class GetLessonPacingStatus {
   // afirmar o caminho trivial (nenhuma macro-pausa ativa).
   constructor(
     private readonly pacingRepository: IPracticePacingRepository,
+    private readonly adminSettingsRepository: IAdminSettingsRepository,
     private readonly now: Clock = () => new Date(),
   ) {}
 
@@ -24,15 +29,40 @@ export class GetLessonPacingStatus {
     const pacing =
       stored ?? PracticePacingState.create({ userId: userSessionId });
 
+    // Busca admin settings efetivos para o pacing
+    const adminSettings = await this.adminSettingsRepository.find();
+    const pacingParams: PacingParams | undefined =
+      adminSettings?.getEffectiveParams()
+        ? {
+            macroBreakEnabled:
+              adminSettings.getEffectiveParams().MACRO_BREAK_ENABLED,
+            macroLessonsThreshold:
+              adminSettings.getEffectiveParams().MACRO_LESSONS_THRESHOLD,
+            macroBreakDurationMs:
+              adminSettings.getEffectiveParams().MACRO_BREAK_DURATION_MS,
+            practiceBlockDurationMs:
+              adminSettings.getEffectiveParams().PRACTICE_BLOCK_DURATION_MS,
+            minBreakDurationMs:
+              adminSettings.getEffectiveParams().MIN_BREAK_DURATION_MS,
+          }
+        : undefined;
+
     const now = this.now();
-    const macroBreakRequired = pacing.isMacroBreakRequired(now);
-    const macroBreakRemainingMs = pacing.macroBreakRemainingMs(now);
+    const macroBreakRequired = pacing.isMacroBreakRequired(now, pacingParams);
+    const macroBreakRemainingMs = pacing.macroBreakRemainingMs(
+      now,
+      pacingParams,
+    );
+
+    // O threshold e duração retornados no DTO devem refletir o que está ativo
+    // (admin settings > adaptiveParams defaults)
+    const effectiveParams: PacingParams = pacingParams ?? toPacingParams();
 
     return {
       lessonsSinceMacroBreak: pacing.completedLessonsSinceMacroBreak,
-      macroLessonsThreshold: adaptiveParams.MACRO_LESSONS_THRESHOLD,
-      macroBreakEnabled: adaptiveParams.MACRO_BREAK_ENABLED,
-      macroBreakDurationMs: adaptiveParams.MACRO_BREAK_DURATION_MS,
+      macroLessonsThreshold: effectiveParams.macroLessonsThreshold,
+      macroBreakEnabled: effectiveParams.macroBreakEnabled,
+      macroBreakDurationMs: effectiveParams.macroBreakDurationMs,
       macroBreakRequired,
       macroBreakRemainingMs,
       // Só há data quando a pausa está de fato em curso: com `macroBreakRequired`

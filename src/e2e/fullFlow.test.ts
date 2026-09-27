@@ -653,6 +653,19 @@ describe("ADR-024 - as 6 rotas recuperadas respondem no app de runtime", () => {
   });
 
   it("GET /me/lesson-pacing responde com o caso de uso real sobre o SQLite real", async () => {
+    // Reseta admin settings para defaults antes do teste, porque o teste PATCH
+    // anterior modificou os valores no banco compartilhado.
+    await request(adminServer)
+      .patch("/admin/settings")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        macroBreakEnabled: true,
+        macroLessonsThreshold: 3,
+        macroBreakDurationMs: 10800000,
+        microBlockDurationMs: 900000,
+        microBreakDurationMs: 180000,
+      });
+
     const res = await request(adminServer)
       .get("/me/lesson-pacing")
       .set("Authorization", `Bearer ${userToken}`);

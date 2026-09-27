@@ -6,12 +6,16 @@ import type { IPracticePacingRepository } from "../../domain/repositories/IPract
 import type { IDailyMetricsAggregateRepository } from "../../domain/repositories/IDailyMetricsAggregateRepository.js";
 import type { IKeyMasteryTransitionRepository } from "../../domain/repositories/IKeyMasteryTransitionRepository.js";
 import type { IUserProfileRepository } from "../../domain/repositories/IUserProfileRepository.js";
+import type { IAdminSettingsRepository } from "../../domain/repositories/IAdminSettingsRepository.js";
 import type { TypingSession } from "../../domain/entities/TypingSession.js";
 import { KeyPerformance } from "../../domain/entities/KeyPerformance.js";
 import type { MasteryState } from "../../domain/entities/KeyPerformance.js";
 import { KeystrokeEvent } from "../../domain/entities/KeystrokeEvent.js";
 import { Progress } from "../../domain/entities/Progress.js";
-import { PracticePacingState } from "../../domain/entities/PracticePacingState.js";
+import {
+  PracticePacingState,
+  type PacingParams,
+} from "../../domain/entities/PracticePacingState.js";
 import { DailyMetricsAggregate } from "../../domain/entities/DailyMetricsAggregate.js";
 import { KeyMasteryTransition } from "../../domain/entities/KeyMasteryTransition.js";
 import { SessionId } from "../../domain/value-objects/SessionId.js";
@@ -40,8 +44,15 @@ export class SubmitTypingSession {
     private readonly aggregateRepository: IDailyMetricsAggregateRepository,
     private readonly userProfileRepository: IUserProfileRepository,
     private readonly masteryTransitionRepository: IKeyMasteryTransitionRepository,
+    private readonly adminSettingsRepository: IAdminSettingsRepository,
     private readonly now: Clock = () => new Date(),
   ) {}
+
+  private getPacingParams(): PacingParams | undefined {
+    // Note: called per execute, not cached, because admin settings can change at runtime
+    // The caller (execute) will fetch and pass if needed
+    return undefined;
+  }
 
   async execute(
     dto: SubmitTypingSessionDTO,
@@ -84,13 +95,35 @@ export class SubmitTypingSession {
 
     await this.sessionRepository.save(finalizedSession);
 
+    // Busca admin settings efetivos para o pacing
+    const adminSettings = await this.adminSettingsRepository.find();
+    const pacingParams: PacingParams | undefined =
+      adminSettings?.getEffectiveParams()
+        ? {
+            macroBreakEnabled:
+              adminSettings.getEffectiveParams().MACRO_BREAK_ENABLED,
+            macroLessonsThreshold:
+              adminSettings.getEffectiveParams().MACRO_LESSONS_THRESHOLD,
+            macroBreakDurationMs:
+              adminSettings.getEffectiveParams().MACRO_BREAK_DURATION_MS,
+            practiceBlockDurationMs:
+              adminSettings.getEffectiveParams().PRACTICE_BLOCK_DURATION_MS,
+            minBreakDurationMs:
+              adminSettings.getEffectiveParams().MIN_BREAK_DURATION_MS,
+          }
+        : undefined;
+
     // RN33 - acumula a prática ativa da sessão concluída apenas na primeira conclusão (RN14).
     // ABANDONED jamais chega aqui (RN13).
     const pacing =
       (await this.pacingRepository.findByUserId(session.userId)) ??
       PracticePacingState.create({ userId: session.userId });
     await this.pacingRepository.save(
-      pacing.recordCompletedSession(metrics.activeDurationMs, this.now()),
+      pacing.recordCompletedSession(
+        metrics.activeDurationMs,
+        this.now(),
+        pacingParams,
+      ),
     );
 
     // RN34 - registra lição completada para macro-pacing (após progresso avançar)
@@ -100,7 +133,7 @@ export class SubmitTypingSession {
         (await this.pacingRepository.findByUserId(session.userId)) ??
         PracticePacingState.create({ userId: session.userId });
       await this.pacingRepository.save(
-        updatedPacing.recordLessonCompleted(this.now()),
+        updatedPacing.recordLessonCompleted(this.now(), pacingParams),
       );
     }
 

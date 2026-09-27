@@ -12,6 +12,7 @@ import { Lesson } from "../../domain/entities/Lesson.js";
 import { UserProfile } from "../../domain/entities/UserProfile.js";
 import { KeyPerformance } from "../../domain/entities/KeyPerformance.js";
 import { TypingSession } from "../../domain/entities/TypingSession.js";
+import type { AdminSettings } from "../../domain/entities/AdminSettings.js";
 import { SessionId } from "../../domain/value-objects/SessionId.js";
 import { Layout } from "../../domain/value-objects/Layout.js";
 import type { KeystrokeEventProps } from "../../domain/entities/KeystrokeEvent.js";
@@ -20,6 +21,26 @@ import {
   SessionNotFoundError,
   InvalidSessionTransitionError,
 } from "../../domain/errors/DomainError.js";
+import type { IAdminSettingsRepository } from "../../domain/repositories/IAdminSettingsRepository.js";
+
+// Fake in-memory admin settings repository for tests
+class InMemoryAdminSettingsRepository implements IAdminSettingsRepository {
+  private stored: AdminSettings | null = null;
+
+  async find(): Promise<AdminSettings | null> {
+    await Promise.resolve();
+    return this.stored;
+  }
+
+  async save(settings: AdminSettings): Promise<void> {
+    await Promise.resolve();
+    this.stored = settings;
+  }
+
+  set(settings: AdminSettings | null): void {
+    this.stored = settings;
+  }
+}
 
 const USER_ID = "550e8400-e29b-41d4-a716-446655440000";
 const OTHER_USER_ID = "550e8400-e29b-41d4-a716-446655440001";
@@ -76,6 +97,7 @@ describe("SubmitTypingSession", () => {
     lessonRepository = new InMemoryLessonRepository();
     aggregateRepository = new InMemoryDailyMetricsAggregateRepository();
     userProfileRepository = new InMemoryUserProfileRepository();
+    const adminSettingsRepository = new InMemoryAdminSettingsRepository();
 
     submitTypingSession = new SubmitTypingSession(
       sessionRepository,
@@ -86,6 +108,7 @@ describe("SubmitTypingSession", () => {
       aggregateRepository,
       userProfileRepository,
       new InMemoryKeyMasteryTransitionRepository(),
+      adminSettingsRepository,
     );
 
     await lessonRepository.save(
@@ -462,6 +485,7 @@ describe("SubmitTypingSession", () => {
 
     beforeEach(() => {
       transitionRepository = new InMemoryKeyMasteryTransitionRepository();
+      const adminSettingsRepository = new InMemoryAdminSettingsRepository();
       submitTypingSession = new SubmitTypingSession(
         sessionRepository,
         keyPerformanceRepository,
@@ -471,6 +495,7 @@ describe("SubmitTypingSession", () => {
         aggregateRepository,
         userProfileRepository,
         transitionRepository,
+        adminSettingsRepository,
       );
     });
 

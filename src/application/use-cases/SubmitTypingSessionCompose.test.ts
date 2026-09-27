@@ -10,9 +10,30 @@ import { InMemoryUserProfileRepository } from "../../infrastructure/repositories
 import { InMemoryKeyMasteryTransitionRepository } from "../../infrastructure/repositories/InMemoryKeyMasteryTransitionRepository.js";
 import { Lesson } from "../../domain/entities/Lesson.js";
 import { TypingSession } from "../../domain/entities/TypingSession.js";
+import type { AdminSettings } from "../../domain/entities/AdminSettings.js";
 import { SessionId } from "../../domain/value-objects/SessionId.js";
 import { Layout } from "../../domain/value-objects/Layout.js";
 import type { KeystrokeEventProps } from "../../domain/entities/KeystrokeEvent.js";
+import type { IAdminSettingsRepository } from "../../domain/repositories/IAdminSettingsRepository.js";
+
+// Fake in-memory admin settings repository for tests
+class InMemoryAdminSettingsRepository implements IAdminSettingsRepository {
+  private stored: AdminSettings | null = null;
+
+  async find(): Promise<AdminSettings | null> {
+    await Promise.resolve();
+    return this.stored;
+  }
+
+  async save(settings: AdminSettings): Promise<void> {
+    await Promise.resolve();
+    this.stored = settings;
+  }
+
+  set(settings: AdminSettings | null): void {
+    this.stored = settings;
+  }
+}
 
 // TASK-081 - Regressões de composição (dead key) do cliente web, preservadas após
 // a remoção do cliente desktop (ADR-022): para um mesmo episódio digitado no web,
@@ -213,6 +234,7 @@ describe("TASK-081 - Regressões de composição do cliente web", () => {
     keyPerformanceRepository = new InMemoryKeyPerformanceRepository();
     progressRepository = new InMemoryProgressRepository();
     lessonRepository = new InMemoryLessonRepository();
+    const adminSettingsRepository = new InMemoryAdminSettingsRepository();
 
     submitTypingSession = new SubmitTypingSession(
       sessionRepository,
@@ -223,6 +245,7 @@ describe("TASK-081 - Regressões de composição do cliente web", () => {
       new InMemoryDailyMetricsAggregateRepository(),
       new InMemoryUserProfileRepository(),
       new InMemoryKeyMasteryTransitionRepository(),
+      adminSettingsRepository,
     );
 
     await lessonRepository.save(

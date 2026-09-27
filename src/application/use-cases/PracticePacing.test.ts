@@ -14,11 +14,32 @@ import { InMemoryKeyMasteryTransitionRepository } from "../../infrastructure/rep
 import { Lesson } from "../../domain/entities/Lesson.js";
 import { TypingSession } from "../../domain/entities/TypingSession.js";
 import { PracticePacingState } from "../../domain/entities/PracticePacingState.js";
+import type { AdminSettings } from "../../domain/entities/AdminSettings.js";
 import { SessionId } from "../../domain/value-objects/SessionId.js";
 import { Layout } from "../../domain/value-objects/Layout.js";
 import { adaptiveParams } from "../../domain/config/adaptiveParams.js";
 import { BreakRequiredError } from "../../domain/errors/DomainError.js";
 import type { KeystrokeEventProps } from "../../domain/entities/KeystrokeEvent.js";
+import type { IAdminSettingsRepository } from "../../domain/repositories/IAdminSettingsRepository.js";
+
+// Fake in-memory admin settings repository for tests
+class InMemoryAdminSettingsRepository implements IAdminSettingsRepository {
+  private stored: AdminSettings | null = null;
+
+  async find(): Promise<AdminSettings | null> {
+    await Promise.resolve();
+    return this.stored;
+  }
+
+  async save(settings: AdminSettings): Promise<void> {
+    await Promise.resolve();
+    this.stored = settings;
+  }
+
+  set(settings: AdminSettings | null): void {
+    this.stored = settings;
+  }
+}
 
 const USER_ID = "550e8400-e29b-41d4-a716-446655440000";
 const LESSON_ID = "550e8400-e29b-41d4-a716-446655440010";
@@ -63,6 +84,7 @@ describe("RN33 - Pacing de prática", () => {
   let pacingRepository: InMemoryPracticePacingRepository;
   let startTypingSession: StartTypingSession;
   let submitTypingSession: SubmitTypingSession;
+  let adminSettingsRepository: InMemoryAdminSettingsRepository;
   let getPracticeStatus: GetPracticeStatus;
 
   beforeEach(async () => {
@@ -75,12 +97,14 @@ describe("RN33 - Pacing de prática", () => {
     keyPerformanceRepository = new InMemoryKeyPerformanceRepository();
     progressRepository = new InMemoryProgressRepository();
     pacingRepository = new InMemoryPracticePacingRepository();
+    adminSettingsRepository = new InMemoryAdminSettingsRepository();
 
     startTypingSession = new StartTypingSession(
       sessionRepository,
       lessonRepository,
       profileRepository,
       pacingRepository,
+      adminSettingsRepository,
     );
     submitTypingSession = new SubmitTypingSession(
       sessionRepository,
@@ -91,8 +115,12 @@ describe("RN33 - Pacing de prática", () => {
       new InMemoryDailyMetricsAggregateRepository(),
       profileRepository,
       new InMemoryKeyMasteryTransitionRepository(),
+      adminSettingsRepository,
     );
-    getPracticeStatus = new GetPracticeStatus(pacingRepository);
+    getPracticeStatus = new GetPracticeStatus(
+      pacingRepository,
+      adminSettingsRepository,
+    );
 
     await lessonRepository.save(createLesson());
   });
@@ -269,7 +297,11 @@ describe("RN33 - Pacing de prática", () => {
     const MACRO_DURATION = adaptiveParams.MACRO_BREAK_DURATION_MS;
 
     const statusAt = (at: Date): GetLessonPacingStatus =>
-      new GetLessonPacingStatus(pacingRepository, () => at);
+      new GetLessonPacingStatus(
+        pacingRepository,
+        adminSettingsRepository,
+        () => at,
+      );
 
     it("usuário sem estado de pacing: ciclo zerado e sem macro-pausa", async () => {
       const status = await statusAt(NOW).execute(USER_ID);

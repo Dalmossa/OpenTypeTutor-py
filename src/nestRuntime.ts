@@ -147,6 +147,7 @@ export function buildNestProviders(
       lessonRepository,
       userProfileRepository,
       pacingRepository,
+      adminSettingsRepository,
     ),
     [TOKENS.PAUSE_SESSION]: new PauseTypingSession(sessionRepository),
     [TOKENS.RESUME_SESSION]: new ResumeTypingSession(sessionRepository),
@@ -160,6 +161,7 @@ export function buildNestProviders(
       dailyAggregateRepository,
       userProfileRepository,
       masteryTransitionRepository,
+      adminSettingsRepository,
     ),
     [TOKENS.GET_REINFORCEMENT_LESSON]: new GetReinforcementLesson(
       userProfileRepository,
@@ -192,7 +194,10 @@ export function buildNestProviders(
       lessonRepository,
     ),
     [TOKENS.CHECK_ERGONOMIC_SAFETY]: new CheckErgonomicSafety(),
-    [TOKENS.GET_PRACTICE_STATUS]: new GetPracticeStatus(pacingRepository),
+    [TOKENS.GET_PRACTICE_STATUS]: new GetPracticeStatus(
+      pacingRepository,
+      adminSettingsRepository,
+    ),
     [TOKENS.GET_LESSON_PERFORMANCE]: new GetLessonPerformance(
       sessionRepository,
     ),
@@ -234,6 +239,7 @@ export function buildNestProviders(
     ),
     [TOKENS.GET_LESSON_PACING_STATUS]: new GetLessonPacingStatus(
       pacingRepository,
+      adminSettingsRepository,
     ),
   };
 }
