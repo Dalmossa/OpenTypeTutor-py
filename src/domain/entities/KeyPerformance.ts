@@ -221,46 +221,27 @@ export class KeyPerformance {
   }
 
   recordSessionEnd(isMasteryApproved: boolean): KeyPerformance {
-    let newConsecutiveMasterySessions = this.consecutiveMasterySessions;
-    let newRegressionSessions = this.regressionSessions;
-
     if (this.masteryState === "MASTERED") {
-      // RN10: Regression counter for MASTERED keys
-      if (isMasteryApproved) {
-        newRegressionSessions = 0; // Reset on approved session
-      } else {
-        newRegressionSessions += 1;
-        // Check for regression (3 consecutive non-approved)
-        if (newRegressionSessions >= MASTERY_REGRESSION_SESSIONS) {
-          // Regress - calculate new state based on WeakKeyScore
-          const newProps = this.toInternalProps();
-          newProps.regressionSessions = 0;
-          newProps.masteryState = "LEARNING"; // Will be recalculated
-          const regressedKp = KeyPerformance.createFromInternal(newProps);
-          return regressedKp.withMasteryState(
-            regressedKp.calculateMasteryState(),
-          );
-        }
-      }
-    } else {
-      // RN09: Mastery progression counter
-      if (isMasteryApproved) {
-        newConsecutiveMasterySessions += 1;
-        newRegressionSessions = 0;
-      } else {
-        newConsecutiveMasterySessions = 0; // Reset on non-approved
-      }
+      return this.applyRegressionCounter(isMasteryApproved);
+    }
 
-      // Check for mastery promotion
-      if (
-        newConsecutiveMasterySessions >= MASTERY_CONSECUTIVE_SESSIONS &&
-        this.attempts >= MASTERY_ATTEMPTS
-      ) {
-        const newProps = this.toInternalProps();
-        newProps.consecutiveMasterySessions = 0;
-        newProps.masteryState = "MASTERED";
-        return KeyPerformance.createFromInternal(newProps);
-      }
+    // RN09: Mastery progression counter
+    const newConsecutiveMasterySessions = isMasteryApproved
+      ? this.consecutiveMasterySessions + 1
+      : 0;
+    const newRegressionSessions = isMasteryApproved
+      ? 0
+      : this.regressionSessions;
+
+    // Check for mastery promotion
+    if (
+      newConsecutiveMasterySessions >= MASTERY_CONSECUTIVE_SESSIONS &&
+      this.attempts >= MASTERY_ATTEMPTS
+    ) {
+      const promotedProps = this.toInternalProps();
+      promotedProps.consecutiveMasterySessions = 0;
+      promotedProps.masteryState = "MASTERED";
+      return KeyPerformance.createFromInternal(promotedProps);
     }
 
     const newProps: KeyPerformanceInternalProps = {
@@ -270,6 +251,34 @@ export class KeyPerformance {
     };
 
     return KeyPerformance.createFromInternal(newProps);
+  }
+
+  // RN10: o contra-contador de regressão só corre para tecla já MASTERED. Os dois
+  // contadores nunca sobem juntos, então este ramo não toca em
+  // `consecutiveMasterySessions` — ele o carrega como estava.
+  private applyRegressionCounter(isMasteryApproved: boolean): KeyPerformance {
+    const newRegressionSessions = isMasteryApproved
+      ? 0
+      : this.regressionSessions + 1;
+
+    // Sessão aprovada zera o contador; não aprovada abaixo do limite só acumula.
+    if (
+      isMasteryApproved ||
+      newRegressionSessions < MASTERY_REGRESSION_SESSIONS
+    ) {
+      const newProps: KeyPerformanceInternalProps = {
+        ...this.toInternalProps(),
+        regressionSessions: newRegressionSessions,
+      };
+      return KeyPerformance.createFromInternal(newProps);
+    }
+
+    // Regress - calculate new state based on WeakKeyScore
+    const regressedProps = this.toInternalProps();
+    regressedProps.regressionSessions = 0;
+    regressedProps.masteryState = "LEARNING"; // Will be recalculated
+    const regressedKp = KeyPerformance.createFromInternal(regressedProps);
+    return regressedKp.withMasteryState(regressedKp.calculateMasteryState());
   }
 
   private withMasteryState(state: MasteryState): KeyPerformance {

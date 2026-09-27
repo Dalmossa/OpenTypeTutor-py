@@ -1,6 +1,5 @@
 import type { KeyPerformance } from "../entities/KeyPerformance.js";
 import type { Layout } from "../value-objects/Layout.js";
-import type { SessionId } from "../value-objects/SessionId.js";
 import { Lesson } from "../entities/Lesson.js";
 import type { INGramRepository } from "../repositories/INGramRepository.js";
 import {
@@ -32,8 +31,12 @@ export class AdaptiveLessonEngine {
     this.params = params;
   }
 
+  // `userId` não é parâmetro: o corpo nunca o leu, e a identidade do usuário já
+  // entrou no motor via `keyPerformances`, que é chaveado por `(userId, layout)`.
+  // O `tsconfig` não liga `noUnusedParameters`, então o argumento morto sobreviveu
+  // e cobrava um `max-params` (5 > 4) em todo chamadas. A distinção de layout do
+  // teste que compara ABNT2 x US-INTERNATIONAL passa pelo `Layout`, não pelo id.
   async generateReinforcementLesson(
-    userId: SessionId,
     keyPerformances: KeyPerformance[],
     layout: Layout,
     level: number,
@@ -41,31 +44,10 @@ export class AdaptiveLessonEngine {
   ): Promise<Lesson> {
     const targetCharacters = this.params.REINFORCEMENT_TARGET_CHARACTERS;
 
-    let targetKeys: string[];
-
-    if (forcedTargetKeys && forcedTargetKeys.length > 0) {
-      targetKeys = [...forcedTargetKeys];
-    } else {
-      const pools = this.categorizeIntoPools(keyPerformances);
-      const allocations = this.allocateCharacters(pools, targetCharacters);
-      targetKeys = this.selectTargetKeys(allocations);
-
-      // RN23 (§24.4) - Fallback sem pool selecionável: usuário novo, todas as teclas
-      // UNKNOWN/LEARNING. Usa as teclas praticadas, ordenadas por frequência de N-gram.
-      if (targetKeys.length === 0) {
-        targetKeys = [
-          ...new Set(
-            keyPerformances
-              .map((performance) => performance.logicalKey)
-              .sort(
-                (a, b) =>
-                  this.nGramRepository.getFrequency(b) -
-                  this.nGramRepository.getFrequency(a),
-              ),
-          ),
-        ];
-      }
-    }
+    const targetKeys =
+      forcedTargetKeys && forcedTargetKeys.length > 0
+        ? [...forcedTargetKeys]
+        : this.resolveTargetKeys(keyPerformances, targetCharacters);
 
     // PRD §25 - conteúdo a partir de padrões linguísticos reais (corpus de frases),
     // aproximando do alvo de caracteres (§24.3). Se o repositório não devolver
@@ -90,6 +72,33 @@ export class AdaptiveLessonEngine {
       targetKeys,
       layout,
     });
+  }
+
+  private resolveTargetKeys(
+    keyPerformances: KeyPerformance[],
+    targetCharacters: number,
+  ): string[] {
+    const pools = this.categorizeIntoPools(keyPerformances);
+    const allocations = this.allocateCharacters(pools, targetCharacters);
+    const selected = this.selectTargetKeys(allocations);
+
+    if (selected.length > 0) {
+      return selected;
+    }
+
+    // RN23 (§24.4) - Fallback sem pool selecionável: usuário novo, todas as teclas
+    // UNKNOWN/LEARNING. Usa as teclas praticadas, ordenadas por frequência de N-gram.
+    return [
+      ...new Set(
+        keyPerformances
+          .map((performance) => performance.logicalKey)
+          .sort(
+            (a, b) =>
+              this.nGramRepository.getFrequency(b) -
+              this.nGramRepository.getFrequency(a),
+          ),
+      ),
+    ];
   }
 
   private categorizeIntoPools(
@@ -118,63 +127,33 @@ export class AdaptiveLessonEngine {
     pools: Map<string, KeyPerformance[]>,
     targetCharacters: number,
   ): PoolAllocation[] {
-    const weights = {
-      WEAK: this.params.WEAK_POOL_WEIGHT,
-      CONSOLIDATING: this.params.CONSOLIDATING_POOL_WEIGHT,
-      MASTERED: this.params.MASTERED_POOL_WEIGHT,
-      LEARNING:
-        1 -
-        this.params.WEAK_POOL_WEIGHT -
-        this.params.CONSOLIDATING_POOL_WEIGHT -
-        this.params.MASTERED_POOL_WEIGHT,
-    };
-
-    const nonEmptyPools: PoolAllocation[] = [];
-    let totalWeight = 0;
-
-    for (const [state, keys] of pools.entries()) {
-      const weight = weights[state as keyof typeof weights];
-      // PRD §24.1 - pools derivados (LEARNING = 0%) podem ter ruído de ponto
-      // flutuante após subtração; trata peso ~0 como pool inexistente de reforço.
-      if (keys.length > 0 && weight > MIN_POOL_WEIGHT_EPSILON) {
-        nonEmptyPools.push({
-          masteryState: state as PoolAllocation["masteryState"],
-          weight,
-          targetCount: 0,
-          keys,
-        });
-        totalWeight += weight;
-      }
-    }
+    const nonEmptyPools = this.selectReinforcementPools(pools);
 
     if (nonEmptyPools.length === 0) {
       return [];
     }
 
+    // Soma na ordem de inserção dos pools, que é a ordem do `Map` de
+    // `categorizeIntoPools` — mesma sequência de ponto flutuante do laço original.
+    const totalWeight = nonEmptyPools.reduce(
+      (sum, pool) => sum + pool.weight,
+      0,
+    );
     let remainingChars = targetCharacters;
 
     for (const pool of nonEmptyPools) {
-      const proportionalShare = (pool.weight / totalWeight) * targetCharacters;
-      const baseCount = Math.floor(proportionalShare);
+      const baseCount = Math.floor(
+        (pool.weight / totalWeight) * targetCharacters,
+      );
       pool.targetCount = baseCount;
       remainingChars -= baseCount;
     }
 
-    nonEmptyPools.sort((a, b) => {
-      const proportionalA = (a.weight / totalWeight) * targetCharacters;
-      const proportionalB = (b.weight / totalWeight) * targetCharacters;
-      const remainderA = proportionalA - Math.floor(proportionalA);
-      const remainderB = proportionalB - Math.floor(proportionalB);
-
-      if (Math.abs(remainderA - remainderB) > POOL_REMAINDER_TIE_EPSILON) {
-        return remainderB - remainderA;
-      }
-
-      return (
-        this.getPoolPriority(b.masteryState) -
-        this.getPoolPriority(a.masteryState)
-      );
-    });
+    this.sortByRemainderThenPriority(
+      nonEmptyPools,
+      totalWeight,
+      targetCharacters,
+    );
 
     for (const pool of nonEmptyPools) {
       if (remainingChars <= 0) break;
@@ -187,6 +166,76 @@ export class AdaptiveLessonEngine {
     }
 
     return nonEmptyPools;
+  }
+
+  private poolWeights(): Record<string, number> {
+    const {
+      WEAK_POOL_WEIGHT,
+      CONSOLIDATING_POOL_WEIGHT,
+      MASTERED_POOL_WEIGHT,
+    } = this.params;
+
+    return {
+      WEAK: WEAK_POOL_WEIGHT,
+      CONSOLIDATING: CONSOLIDATING_POOL_WEIGHT,
+      MASTERED: MASTERED_POOL_WEIGHT,
+      // PRD §24.1 - LEARNING é derivado por subtração, não por parâmetro: é o que
+      // sobrar das outras três, e por isso nasce com ruído de ponto flutuante.
+      LEARNING:
+        1 - WEAK_POOL_WEIGHT - CONSOLIDATING_POOL_WEIGHT - MASTERED_POOL_WEIGHT,
+    };
+  }
+
+  private selectReinforcementPools(
+    pools: Map<string, KeyPerformance[]>,
+  ): PoolAllocation[] {
+    const weights = this.poolWeights();
+    const selected: PoolAllocation[] = [];
+
+    for (const [state, keys] of pools.entries()) {
+      // Estado fora dos quatro do §24.1 vira 0, e por isso cai no mesmo
+      // `> epsilon` que antes o `undefined` caía: pool ignorado.
+      const weight = weights[state] ?? 0;
+      // PRD §24.1 - pool derivado (LEARNING = 0%) tem ruído de ponto flutuante
+      // após a subtração; peso ~0 é tratado como pool inexistente de reforço.
+      if (keys.length > 0 && weight > MIN_POOL_WEIGHT_EPSILON) {
+        selected.push({
+          masteryState: state as PoolAllocation["masteryState"],
+          weight,
+          targetCount: 0,
+          keys,
+        });
+      }
+    }
+
+    return selected;
+  }
+
+  private sortByRemainderThenPriority(
+    pools: PoolAllocation[],
+    totalWeight: number,
+    targetCharacters: number,
+  ): void {
+    const remainderOf = (pool: PoolAllocation): number => {
+      const proportionalShare = (pool.weight / totalWeight) * targetCharacters;
+      return proportionalShare - Math.floor(proportionalShare);
+    };
+
+    pools.sort((a, b) => {
+      const remainderA = remainderOf(a);
+      const remainderB = remainderOf(b);
+
+      // RN19 - desempate de arredondamento: primeiro o resto decimal, e na
+      // empate de resto (dentro da tolerância) a prioridade do estado do pool.
+      if (Math.abs(remainderA - remainderB) > POOL_REMAINDER_TIE_EPSILON) {
+        return remainderB - remainderA;
+      }
+
+      return (
+        this.getPoolPriority(b.masteryState) -
+        this.getPoolPriority(a.masteryState)
+      );
+    });
   }
 
   private getPoolPriority(state: PoolAllocation["masteryState"]): number {

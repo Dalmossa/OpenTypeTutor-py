@@ -10,7 +10,7 @@
     "dev:api": "PORT=3001 npm run dev",
     "build": "tsc",
     "start": "node dist/main-nest.js",
-    "lint": "eslint src --ext .ts --max-warnings 44",
+    "lint": "eslint src --ext .ts --max-warnings 43",
     "lint:baseline": "eslint src --ext .ts",
     "lint:fix": "eslint src --ext .ts --fix",
     "test": "vitest run",
@@ -27,8 +27,8 @@
   },
   "lint-staged": {
     "*.{ts,tsx}": [
-      "eslint --fix",
-      "prettier --write"
+      "prettier --write",
+      "eslint --fix"
     ],
     "*.{json,md,yml,yaml}": [
       "prettier --write"

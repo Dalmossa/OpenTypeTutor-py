@@ -82,16 +82,28 @@ O describe `ADR-002/ADR-005 - paridade entre ALL_MIGRATIONS e SCHEMA_MIGRATIONS`
 
 ## Estado atual do working tree
 
-Refactor **não commitado** (refresh token, password reset, admin settings, role de usuário, macro-pausa, remoção da pilha Express).
+**Gate medido em 2026-09-27, depois do ADR-024, na ordem `lint → typecheck → test` — VERDE:**
 
-**O gate está VERDE** (medido em 2026-09-27, ordem `lint → typecheck → test`):
-
-- `npm run lint` → **0 erros**, 44 warnings (exatamente no teto do ratchet, `--max-warnings 44`)
+- `npm run lint` → **0 erros**, 43 warnings (exatamente no teto do ratchet, `--max-warnings 43`)
 - `npm run typecheck` → passa em `src` **e** `bench` (`tsc --noEmit && tsc -p tsconfig.bench.json`)
 - `npm run test` → **819 passando** em 81 arquivos, 0 falha
-- `npm run test:coverage` → exit 0; global 93,61% stmts / 85,94% branches / 94,03% lines
 
 O número de warnings é um **snapshot de árvore em movimento**: se você editar `src/` enquanto o outro agente trabalha, reveja com `npm run lint:baseline` e ajuste o teto junto — um `--max-warnings` errado derruba o gate por um motivo que não é seu.
+
+### O commit que passou no meu gate e estava vermelho
+
+O ADR-024 foi commitado com `lint` medindo 44 no `prettier` ainda por rodar. O `prettier --write` do pre-commit reformatou `KeyPerformance.ts` (311 → 334 linhas) e `AdaptiveLessonEngine.ts` (212 → 240) e o resultado ficou em **47** — acima do teto. Duas funções cruzaram o `max-lines-per-function` **só porque o formatador quebrou linhas**: `recordSessionEnd` foi de 46 para 51, e `allocateCharacters` de 38 para 74. Nenhuma delas mudou de comportamento; só de tamanho.
+
+Isso é a mesma classe de falha do ADR-024, em escala menor: **um gate medido antes da última transformação não mede o resultado dela.** O `lint-staged` era `eslint --fix` e depois `prettier --write` — o linter via o arquivo pré-formatação e o commit levava o arquivo pós-formatação. Invertido para `prettier --write` e depois `eslint --fix`.
+
+Paguei as 4 violações em vez de subir o teto, e uma delas era código morto de verdade: **`generateReinforcementLesson` recebia `userId` e nunca lia o parâmetro** (`noUnusedParameters` está desligado no `tsconfig`, então nada o pegou). Removido, com os 13 call sites ajustados. Ele custava o `max-params`, e a extração do fallback do RN23 para `resolveTargetKeys` derrubou o `max-lines-per-function` junto. As outras duas: `allocateCharacters` (74 linhas) partido em `poolWeights` + `selectReinforcementPools` + `sortByRemainderThenPriority`, e `recordSessionEnd` (51 linhas) com o ramo de regressão do RN10 extraído para `applyRegressionCounter`.
+
+Os dois trechos extraídos foram validados por mutação antes de_commitar_, porque refatorar regra de negócio só passa no gate se os testes já cobriam a regra:
+
+| Mutação                                                     | Resultado                                                                                     |
+| ----------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| RN10: contador de regressão deixa de avançar (`+ 1` → nada) | 3 testes falham, incluindo _"deve regredir de MASTERED após 3 sessões não aprovadas"_         |
+| RN19: inverter o desempate por resto decimal                | 1 teste falha: _"deve priorizar WEAK sobre CONSOLIDATING quando há empate no arredondamento"_ |
 
 ### Correções que fecharam a linha de base vermelha anterior
 
@@ -154,9 +166,11 @@ Categorias de arquivo que furam a regra (não são camadas): `**/*.test.ts`, e a
 
 Limites: `complexity ≤ 10`, `max-lines ≤ 300`, `max-lines-per-function ≤ 50`, `max-depth ≤ 4`, `max-params ≤ 4`, `no-magic-numbers` (ignora `0`, `1`, `-1`, `2`, `100`, códigos HTTP, índices e defaults; `enforceConst` — constante nomeada não é magic number).
 
-**Todas em `warn`, não `error`.** O alvo é `error` em todos os tiers; o flip é a constante `CLEAN_CODE_SEVERITY` no topo do `eslint.config.mjs`. Dívida medida (após ADR-024, que pagou 7 ao remover a pilha Express): **44** — `domain` 15, `application` 14, `presentation` 9, `infrastructure` 4, composition root 2. Por regra: `no-magic-numbers` 14, `complexity` 12, `max-params` 8, `max-lines-per-function` 8, `max-lines` 2.
+**Todas em `warn`, não `error`.** O alvo é `error` em todos os tiers; o flip é a constante `CLEAN_CODE_SEVERITY` no topo do `eslint.config.mjs`. Dívida medida: **43** — `domain` 14, `application` 14, `presentation` 9, `infrastructure` 4, composition root 2. Por regra: `no-magic-numbers` 14, `complexity` 12, `max-lines-per-function` 8, `max-params` 7, `max-lines` 2.
 
-**Ratchet: `npm run lint` roda com `--max-warnings 44`** — violação nova quebra o gate, violação paga é teto abaixado. O teto só desce; para subir, justifique em review. `npm run lint:baseline` roda sem o teto, para medir. O CI executa `npm run lint`, então o ratchet vale no pipeline. Zerar a dívida é o caso limite `--max-warnings 0`, que é o flip para `error`.
+**Ratchet: `npm run lint` roda com `--max-warnings 43`** — violação nova quebra o gate, violação paga é teto abaixado. O teto só desce; para subir, justifique em review. `npm run lint:baseline` roda sem o teto, para medir. O CI executa `npm run lint`, então o ratchet vale no pipeline. Zerar a dívida é o caso limite `--max-warnings 0`, que é o flip para `error`.
+
+**O `lint-staged` formata ANTES de linar, e a ordem é load-bearing.** Era `eslint --fix` e depois `prettier --write`, e isso entregou um commit **vermelho** sem ninguém perceber: o ESLint mediu 44 num arquivo de 311 linhas, o prettier reformatou para 334, e `recordSessionEnd` passou de 46 para 51 linhas — cruzando o `max-lines-per-function`. Como nada mede o lint depois do prettier, o ratchet só apareceu na leitura seguinte, já com o commit no `HEAD`. O detalhe que torna isso possível: **`max-lines` e `max-lines-per-function` medem linhas**, então são as duas regras que um reformat piora sem tocar em lógica — o `complexity` e o `no-magic-numbers` são imunes a formatação. Hoje a ordem é `prettier --write` e depois `eslint --fix`, que é a única que deixa o linter olhar o arquivo final; invertê-la de volta reintroduz o buraco.
 
 Exceções: migrações, seeds e corpus (`max-lines`, `max-lines-per-function`, `no-magic-numbers` off — o corpus é `src/infrastructure/repositories/phraseCorpus.ts`); `*.test.ts` (`no-magic-numbers`, `max-lines`, `max-lines-per-function` off — mas `complexity` e `max-params` valem); composition root (`src/nestRuntime.ts` + `src/main-nest.ts`, `max-lines` off — é wiring de bootstrap, medir estilo ali polui o sinal); `src/domain/config/**` (`no-magic-numbers` off — é o lar dos parâmetros, medir a regra ali proibiria o próprio remédio).
 
