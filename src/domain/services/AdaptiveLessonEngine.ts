@@ -1,12 +1,18 @@
-import type { KeyPerformance } from '../entities/KeyPerformance.js';
-import type { Layout } from '../value-objects/Layout.js';
-import type { SessionId } from '../value-objects/SessionId.js';
-import { Lesson } from '../entities/Lesson.js';
-import type { INGramRepository } from '../repositories/INGramRepository.js';
-import { adaptiveParams, type AdaptiveParams } from '../config/adaptiveParams.js';
+import type { KeyPerformance } from "../entities/KeyPerformance.js";
+import type { Layout } from "../value-objects/Layout.js";
+import type { SessionId } from "../value-objects/SessionId.js";
+import { Lesson } from "../entities/Lesson.js";
+import type { INGramRepository } from "../repositories/INGramRepository.js";
+import {
+  adaptiveParams,
+  type AdaptiveParams,
+} from "../config/adaptiveParams.js";
+
+const MIN_POOL_WEIGHT_EPSILON = adaptiveParams.MIN_POOL_WEIGHT_EPSILON;
+const POOL_REMAINDER_TIE_EPSILON = adaptiveParams.POOL_REMAINDER_TIE_EPSILON;
 
 interface PoolAllocation {
-  masteryState: 'WEAK' | 'CONSOLIDATING' | 'LEARNING' | 'MASTERED' | 'UNKNOWN';
+  masteryState: "WEAK" | "CONSOLIDATING" | "LEARNING" | "MASTERED" | "UNKNOWN";
   weight: number;
   targetCount: number;
   keys: KeyPerformance[];
@@ -18,7 +24,10 @@ export class AdaptiveLessonEngine {
   private readonly nGramRepository: INGramRepository;
   private readonly params: AdaptiveParams;
 
-  constructor(nGramRepository: INGramRepository, params: AdaptiveParams = adaptiveParams) {
+  constructor(
+    nGramRepository: INGramRepository,
+    params: AdaptiveParams = adaptiveParams,
+  ) {
     this.nGramRepository = nGramRepository;
     this.params = params;
   }
@@ -28,7 +37,7 @@ export class AdaptiveLessonEngine {
     keyPerformances: KeyPerformance[],
     layout: Layout,
     level: number,
-    forcedTargetKeys?: string[]
+    forcedTargetKeys?: string[],
   ): Promise<Lesson> {
     const targetCharacters = this.params.REINFORCEMENT_TARGET_CHARACTERS;
 
@@ -47,10 +56,12 @@ export class AdaptiveLessonEngine {
         targetKeys = [
           ...new Set(
             keyPerformances
-              .map(performance => performance.logicalKey)
+              .map((performance) => performance.logicalKey)
               .sort(
-                (a, b) => this.nGramRepository.getFrequency(b) - this.nGramRepository.getFrequency(a)
-              )
+                (a, b) =>
+                  this.nGramRepository.getFrequency(b) -
+                  this.nGramRepository.getFrequency(a),
+              ),
           ),
         ];
       }
@@ -62,28 +73,34 @@ export class AdaptiveLessonEngine {
     const patterns = await this.nGramRepository.getPatterns(
       layout,
       targetKeys,
-      AdaptiveLessonEngine.MINIMUM_PATTERN_LENGTH
+      AdaptiveLessonEngine.MINIMUM_PATTERN_LENGTH,
     );
-    const content = this.generateLessonContent(patterns, targetKeys, targetCharacters);
+    const content = this.generateLessonContent(
+      patterns,
+      targetKeys,
+      targetCharacters,
+    );
 
     return Lesson.create({
       title: `Lição de Reforço - Nível ${String(level)}`,
       content,
-      type: 'REINFORCEMENT',
-      difficulty: 'REINFORCEMENT',
+      type: "REINFORCEMENT",
+      difficulty: "REINFORCEMENT",
       level,
       targetKeys,
       layout,
     });
   }
 
-  private categorizeIntoPools(keyPerformances: KeyPerformance[]): Map<string, KeyPerformance[]> {
+  private categorizeIntoPools(
+    keyPerformances: KeyPerformance[],
+  ): Map<string, KeyPerformance[]> {
     const pools = new Map<string, KeyPerformance[]>([
-      ['WEAK', []],
-      ['CONSOLIDATING', []],
-      ['LEARNING', []],
-      ['MASTERED', []],
-      ['UNKNOWN', []],
+      ["WEAK", []],
+      ["CONSOLIDATING", []],
+      ["LEARNING", []],
+      ["MASTERED", []],
+      ["UNKNOWN", []],
     ]);
 
     for (const kp of keyPerformances) {
@@ -97,12 +114,19 @@ export class AdaptiveLessonEngine {
     return pools;
   }
 
-  private allocateCharacters(pools: Map<string, KeyPerformance[]>, targetCharacters: number): PoolAllocation[] {
+  private allocateCharacters(
+    pools: Map<string, KeyPerformance[]>,
+    targetCharacters: number,
+  ): PoolAllocation[] {
     const weights = {
       WEAK: this.params.WEAK_POOL_WEIGHT,
       CONSOLIDATING: this.params.CONSOLIDATING_POOL_WEIGHT,
       MASTERED: this.params.MASTERED_POOL_WEIGHT,
-      LEARNING: 1 - this.params.WEAK_POOL_WEIGHT - this.params.CONSOLIDATING_POOL_WEIGHT - this.params.MASTERED_POOL_WEIGHT,
+      LEARNING:
+        1 -
+        this.params.WEAK_POOL_WEIGHT -
+        this.params.CONSOLIDATING_POOL_WEIGHT -
+        this.params.MASTERED_POOL_WEIGHT,
     };
 
     const nonEmptyPools: PoolAllocation[] = [];
@@ -112,9 +136,9 @@ export class AdaptiveLessonEngine {
       const weight = weights[state as keyof typeof weights];
       // PRD §24.1 - pools derivados (LEARNING = 0%) podem ter ruído de ponto
       // flutuante após subtração; trata peso ~0 como pool inexistente de reforço.
-      if (keys.length > 0 && weight > 0.000001) {
+      if (keys.length > 0 && weight > MIN_POOL_WEIGHT_EPSILON) {
         nonEmptyPools.push({
-          masteryState: state as PoolAllocation['masteryState'],
+          masteryState: state as PoolAllocation["masteryState"],
           weight,
           targetCount: 0,
           keys,
@@ -142,11 +166,14 @@ export class AdaptiveLessonEngine {
       const remainderA = proportionalA - Math.floor(proportionalA);
       const remainderB = proportionalB - Math.floor(proportionalB);
 
-      if (Math.abs(remainderA - remainderB) > 0.0001) {
+      if (Math.abs(remainderA - remainderB) > POOL_REMAINDER_TIE_EPSILON) {
         return remainderB - remainderA;
       }
 
-      return this.getPoolPriority(b.masteryState) - this.getPoolPriority(a.masteryState);
+      return (
+        this.getPoolPriority(b.masteryState) -
+        this.getPoolPriority(a.masteryState)
+      );
     });
 
     for (const pool of nonEmptyPools) {
@@ -162,8 +189,8 @@ export class AdaptiveLessonEngine {
     return nonEmptyPools;
   }
 
-  private getPoolPriority(state: PoolAllocation['masteryState']): number {
-    const priority: Record<PoolAllocation['masteryState'], number> = {
+  private getPoolPriority(state: PoolAllocation["masteryState"]): number {
+    const priority: Record<PoolAllocation["masteryState"], number> = {
       WEAK: 3,
       CONSOLIDATING: 2,
       MASTERED: 1,
@@ -196,18 +223,18 @@ export class AdaptiveLessonEngine {
   private generateLessonContent(
     patterns: string[],
     targetKeys: string[],
-    targetCharacters: number
+    targetCharacters: number,
   ): string {
     if (patterns.length === 0) {
       const uniqueKeys = [...new Set(targetKeys)];
-      return uniqueKeys.join(' ');
+      return uniqueKeys.join(" ");
     }
 
-    let content = '';
+    let content = "";
     for (const pattern of patterns) {
       if (content.length + pattern.length + 1 > targetCharacters) break;
-      content += (content ? ' ' : '') + pattern;
+      content += (content ? " " : "") + pattern;
     }
-    return content || targetKeys.join(' ');
+    return content || targetKeys.join(" ");
   }
 }

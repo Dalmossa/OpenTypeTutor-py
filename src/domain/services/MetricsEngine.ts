@@ -1,7 +1,8 @@
-import type { TypingSession } from '../entities/TypingSession.js';
-import { SessionMetrics } from '../entities/SessionMetrics.js';
-import { adaptiveParams } from '../config/adaptiveParams.js';
-import type { KeystrokeEvent } from '../entities/KeystrokeEvent.js';
+import type { TypingSession } from "../entities/TypingSession.js";
+import { SessionMetrics } from "../entities/SessionMetrics.js";
+import { adaptiveParams } from "../config/adaptiveParams.js";
+import type { KeystrokeEvent } from "../entities/KeystrokeEvent.js";
+import { CHARS_PER_WORD, MS_PER_MINUTE } from "../config/timeUnits.js";
 
 // eslint-disable-next-line @typescript-eslint/no-extraneous-class
 export class MetricsEngine {
@@ -14,30 +15,53 @@ export class MetricsEngine {
 
     const activeDurationMs = session.activeDurationMs;
 
-    const { charactersTyped, correctCharacters, incorrectCharacters, correctedErrors, validLatencies } =
-      MetricsEngine.processKeystrokes(keystrokes);
+    const {
+      charactersTyped,
+      correctCharacters,
+      incorrectCharacters,
+      correctedErrors,
+      validLatencies,
+    } = MetricsEngine.processKeystrokes(keystrokes);
 
-    const finalUncorrectedErrors = Math.max(0, incorrectCharacters - correctedErrors);
+    const finalUncorrectedErrors = Math.max(
+      0,
+      incorrectCharacters - correctedErrors,
+    );
 
-    const accuracy = charactersTyped > 0 ? correctCharacters / charactersTyped : 0;
+    const accuracy =
+      charactersTyped > 0 ? correctCharacters / charactersTyped : 0;
 
-    const activeDurationMinutes = MetricsEngine.getActiveDurationMinutes(activeDurationMs);
+    const activeDurationMinutes =
+      MetricsEngine.getActiveDurationMinutes(activeDurationMs);
 
-    const isInsufficient =
-      activeDurationMs < adaptiveParams.INSUFFICIENT_DATA_MIN_DURATION_MS ||
-      charactersTyped < adaptiveParams.INSUFFICIENT_DATA_MIN_CHARS;
+    // RN22 - a regra mora em `SessionMetrics.isInsufficientDataFor`, e a
+    // entidade deriva a flag da mesma chamada. Se as duas divergirem, o WPM é
+    // zerado mas a sessão ainda conta como válida em quem lê a flag.
+    const isInsufficient = SessionMetrics.isInsufficientDataFor(
+      activeDurationMs,
+      charactersTyped,
+    );
 
     let grossWpm = 0;
     let netWpm = 0;
 
     if (!isInsufficient) {
-      grossWpm = MetricsEngine.calculateGrossWpm(charactersTyped, activeDurationMinutes);
-      netWpm = MetricsEngine.calculateNetWpm(grossWpm, finalUncorrectedErrors, activeDurationMinutes);
+      grossWpm = MetricsEngine.calculateGrossWpm(
+        charactersTyped,
+        activeDurationMinutes,
+      );
+      netWpm = MetricsEngine.calculateNetWpm(
+        grossWpm,
+        finalUncorrectedErrors,
+        activeDurationMinutes,
+      );
     }
 
-    const averageLatencyMs = validLatencies.length > 0
-      ? validLatencies.reduce((sum, lat) => sum + lat, 0) / validLatencies.length
-      : 0;
+    const averageLatencyMs =
+      validLatencies.length > 0
+        ? validLatencies.reduce((sum, lat) => sum + lat, 0) /
+          validLatencies.length
+        : 0;
 
     return SessionMetrics.create({
       charactersTyped,
@@ -67,11 +91,11 @@ export class MetricsEngine {
     const validLatencies: number[] = [];
 
     for (const ks of keystrokes) {
-      if (ks.eventType === 'CORRECTION') {
+      if (ks.eventType === "CORRECTION") {
         correctedErrors++;
         continue;
       }
-      if (ks.eventType === 'DEAD_KEY_COMPOSE') {
+      if (ks.eventType === "DEAD_KEY_COMPOSE") {
         if (ks.latencyMs !== null) {
           validLatencies.push(ks.latencyMs);
         }
@@ -82,14 +106,14 @@ export class MetricsEngine {
       }
 
       switch (ks.eventType) {
-        case 'CORRECT':
+        case "CORRECT":
           charactersTyped++;
           correctCharacters++;
           if (ks.latencyMs !== null) {
             validLatencies.push(ks.latencyMs);
           }
           break;
-        case 'INCORRECT':
+        case "INCORRECT":
           charactersTyped++;
           incorrectCharacters++;
           if (ks.latencyMs !== null) {
@@ -99,21 +123,34 @@ export class MetricsEngine {
       }
     }
 
-    return { charactersTyped, correctCharacters, incorrectCharacters, correctedErrors, validLatencies };
+    return {
+      charactersTyped,
+      correctCharacters,
+      incorrectCharacters,
+      correctedErrors,
+      validLatencies,
+    };
   }
 
   private static getActiveDurationMinutes(activeDurationMs: number): number {
     const epsilon = adaptiveParams.ACTIVE_DURATION_EPSILON_MS;
     const effectiveDurationMs = Math.max(activeDurationMs, epsilon);
-    return effectiveDurationMs / 60000;
+    return effectiveDurationMs / MS_PER_MINUTE;
   }
 
-  private static calculateGrossWpm(charactersTyped: number, activeDurationMinutes: number): number {
+  private static calculateGrossWpm(
+    charactersTyped: number,
+    activeDurationMinutes: number,
+  ): number {
     if (activeDurationMinutes <= 0) return 0;
-    return Math.round((charactersTyped / 5) / activeDurationMinutes);
+    return Math.round(charactersTyped / CHARS_PER_WORD / activeDurationMinutes);
   }
 
-  private static calculateNetWpm(grossWpm: number, finalUncorrectedErrors: number, activeDurationMinutes: number): number {
+  private static calculateNetWpm(
+    grossWpm: number,
+    finalUncorrectedErrors: number,
+    activeDurationMinutes: number,
+  ): number {
     if (activeDurationMinutes <= 0) return 0;
     const errorPenalty = finalUncorrectedErrors / activeDurationMinutes;
     return Math.max(0, Math.round(grossWpm - errorPenalty));

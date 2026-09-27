@@ -6,7 +6,10 @@ import VirtualKeyboard from "@/components/virtual-keyboard";
 import type { UseTypingSessionResult } from "@/hooks/use-typing-session";
 import { KEY_HINT_TIMEOUT_MS } from "@/lib/typing-hints";
 import type { LessonDTO } from "@/models/lesson";
-import type { SubmitSessionResponseDTO } from "@/models/session";
+import type {
+  SessionMetricsDTO,
+  SubmitSessionResponseDTO,
+} from "@/models/session";
 
 const { getNextLessonMock, submitProgressCardMock } = vi.hoisted(() => ({
   getNextLessonMock: vi.fn(),
@@ -38,7 +41,10 @@ function makeLesson(overrides?: Partial<LessonDTO>): LessonDTO {
   };
 }
 
-function makeResult(finalUncorrectedErrors: number): SubmitSessionResponseDTO {
+function makeResult(
+  finalUncorrectedErrors: number,
+  metrics: Partial<SessionMetricsDTO> = {},
+): SubmitSessionResponseDTO {
   return {
     sessionId: "s1",
     state: "COMPLETED",
@@ -53,6 +59,11 @@ function makeResult(finalUncorrectedErrors: number): SubmitSessionResponseDTO {
       netWpm: 19,
       activeDurationMs: 40000,
       averageLatencyMs: 400,
+      // 40s e 40 caracteres passam dos limiares da RN22, então o backend
+      // devolveria `false` aqui. Declarar explicitamente é o ponto: o painel
+      // lê a flag, não a recalcula.
+      insufficientData: false,
+      ...metrics,
     },
   };
 }
@@ -234,6 +245,84 @@ describe("CompletedPanel — RN26 (botão azul Avançar)", () => {
       expect.objectContaining({ lessonId: "7" }),
       "token",
     );
+  });
+});
+
+describe("CompletedPanel — RN22 (dados insuficientes)", () => {
+  it("insufficientData:true mostra a tela de sessão curta e não registra cartão", async () => {
+    getNextLessonMock.mockResolvedValue({
+      lesson: makeLesson({ id: "8" }),
+      shouldVaryExercise: false,
+      reason: "advance",
+    });
+    render(
+      <TypingInterface
+        session={makeSession({
+          result: makeResult(0, { insufficientData: true }),
+        })}
+        onBack={vi.fn()}
+        onRepeatLesson={vi.fn()}
+        onAdvanceLesson={vi.fn()}
+      />,
+    );
+
+    expect(await screen.findByText("Sessão muito curta")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Avançar" }),
+    ).not.toBeInTheDocument();
+    // Registrar cartão aqui moveria a fronteira do currículo com uma métrica que
+    // a RN22 diz não ter significado — o painel é o fail-closed do cliente.
+    expect(submitProgressCardMock).not.toHaveBeenCalled();
+  });
+
+  it("a tela confia na flag do backend em vez de rederivar a RN22 dos números", async () => {
+    // 100ms e 2 caracteres ficariam abaixo dos limiares se a tela os
+    // rederivasse (`< 3000 || < 5`), e ela mostraria "Sessão muito curta".
+    // Com a flag do backend valendo `false`, ela renderiza o resultado normal.
+    // É este teste que quebra se alguém reintroduzir literais no componente.
+    getNextLessonMock.mockResolvedValue({
+      lesson: makeLesson({ id: "8" }),
+      shouldVaryExercise: false,
+      reason: "advance",
+    });
+    render(
+      <TypingInterface
+        session={makeSession({
+          result: makeResult(0, {
+            activeDurationMs: 100,
+            charactersTyped: 2,
+            insufficientData: false,
+          }),
+        })}
+        onBack={vi.fn()}
+        onRepeatLesson={vi.fn()}
+        onAdvanceLesson={vi.fn()}
+      />,
+    );
+
+    expect(await screen.findByText("Lição concluída!")).toBeInTheDocument();
+    expect(screen.queryByText("Sessão muito curta")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Avançar" })).toBeInTheDocument();
+  });
+
+  it("insufficientData:false em sessão curta renderiza o painel normal", async () => {
+    getNextLessonMock.mockResolvedValue({
+      lesson: makeLesson({ id: "8" }),
+      shouldVaryExercise: false,
+      reason: "advance",
+    });
+    render(
+      <TypingInterface
+        session={makeSession({
+          result: makeResult(0, { insufficientData: false }),
+        })}
+        onBack={vi.fn()}
+        onRepeatLesson={vi.fn()}
+        onAdvanceLesson={vi.fn()}
+      />,
+    );
+
+    expect(await screen.findByText("Lição concluída!")).toBeInTheDocument();
   });
 });
 

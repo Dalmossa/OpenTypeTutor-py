@@ -1,9 +1,9 @@
-import path from 'path';
-import fs from 'fs';
-import os from 'os';
-import { createDataSource } from '../src/infrastructure/database/data-source.js';
+import path from "path";
+import fs from "fs";
+import os from "os";
+import { createDataSource } from "../src/infrastructure/database/data-source.js";
 import {
-  buildApp,
+  startBenchApp,
   buildKeystrokes,
   jsonResponse,
   postJson,
@@ -12,7 +12,7 @@ import {
   runAutocannon,
   seedCompletedSessions,
   seedLesson,
-} from './benchHarness.js';
+} from "./benchHarness.js";
 
 // TASK-080 - Validar a UI Next (cena A, ADR-016) contra o RNF06 (p95 ≤ 150ms).
 //
@@ -48,16 +48,20 @@ async function runInteractiveSubmits(
   authHeaders: Record<string, string>,
   lessonId: string,
   payload: unknown,
-  count = 5
+  count = 5,
 ): Promise<InteractiveReport> {
   const times: number[] = [];
   for (let i = 0; i < count; i++) {
     const started = await jsonResponse(
-      await postJson(backendUrl + '/sessions', authHeaders, { lessonId })
+      await postJson(backendUrl + "/sessions", authHeaders, { lessonId }),
     );
     const sessionId = (started.body as { sessionId: string }).sessionId;
     const t0 = performance.now();
-    const res = await postJson(`${uiBase}/api/sessions/${sessionId}/submit`, authHeaders, { keystrokes: payload });
+    const res = await postJson(
+      `${uiBase}/api/sessions/${sessionId}/submit`,
+      authHeaders,
+      { keystrokes: payload },
+    );
     if (!res.ok) {
       throw new Error(`Submit interativo falhou (${String(res.status)})`);
     }
@@ -73,11 +77,11 @@ async function runInteractiveSubmits(
 async function main(): Promise<void> {
   printReferenceEnvironment();
 
-  const backendPort = envInt('CENA_A_BACKEND_PORT', 3101);
-  const uiBase = process.env.CENA_A_UI_URL ?? 'http://localhost:3000';
+  const backendPort = envInt("CENA_A_BACKEND_PORT", 3101);
+  const uiBase = process.env.CENA_A_UI_URL ?? "http://localhost:3000";
 
-  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentype-cena-a-'));
-  const dbFile = path.join(tempDir, 'cena-a.sqlite');
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "opentype-cena-a-"));
+  const dbFile = path.join(tempDir, "cena-a.sqlite");
 
   const dataSource = createDataSource({ database: dbFile });
   await dataSource.initialize();
@@ -85,38 +89,46 @@ async function main(): Promise<void> {
 
   const lessonId = await seedLesson(dataSource);
 
-  const app = buildApp(dataSource);
-  const server = app.listen(backendPort);
-  await new Promise<void>((resolve) => {
-    server.once('listening', () => resolve());
-  });
-  const backendUrl = `http://127.0.0.1:${String(backendPort)}`;
+  const { baseUrl: backendUrl, stop } = await startBenchApp(
+    dataSource,
+    backendPort,
+  );
 
   console.info(`Backend de benchmark (temp): ${backendUrl}`);
   console.info(`UI Next (cena A): ${uiBase}/api/** → ${backendUrl}/**`);
-  console.info('');
+  console.info("");
 
   const registered = await jsonResponse(
-    await postJson(backendUrl + '/auth/register', {}, { name: 'Benchmark', email: 'bench@email.com', password: 'senha1234' })
+    await postJson(
+      backendUrl + "/auth/register",
+      {},
+      { name: "Benchmark", email: "bench@email.com", password: "senha1234" },
+    ),
   );
   if (registered.status !== 201) {
-    throw new Error('Falha no registro de usuário do benchmark');
+    throw new Error("Falha no registro de usuário do benchmark");
   }
   const userId = (registered.body as { userId: string }).userId;
 
   const loginRes = await jsonResponse(
-    await postJson(backendUrl + '/auth/login', {}, { email: 'bench@email.com', password: 'senha1234' })
+    await postJson(
+      backendUrl + "/auth/login",
+      {},
+      { email: "bench@email.com", password: "senha1234" },
+    ),
   );
   const accessToken = (loginRes.body as { accessToken: string }).accessToken;
   const authHeaders = { authorization: `Bearer ${accessToken}` };
 
-  console.info('Populando banco com 500 sessões completas do usuário de teste (SQLite em arquivo)...');
+  console.info(
+    "Populando banco com 500 sessões completas do usuário de teste (SQLite em arquivo)...",
+  );
   await seedCompletedSessions(dataSource, userId, lessonId);
-  console.info('Seed concluído.');
-  console.info('');
+  console.info("Seed concluído.");
+  console.info("");
 
   const started = await jsonResponse(
-    await postJson(backendUrl + '/sessions', authHeaders, { lessonId })
+    await postJson(backendUrl + "/sessions", authHeaders, { lessonId }),
   );
   const benchSessionId = (started.body as { sessionId: string }).sessionId;
 
@@ -130,43 +142,68 @@ async function main(): Promise<void> {
   console.info(`Submit frio VIA UI (${uiBase}/api, 1500 eventos):`);
   const coldStart = performance.now();
   const coldRes = await jsonResponse(
-    await postJson(`${uiBase}/api/sessions/${benchSessionId}/submit`, authHeaders, { keystrokes: payload })
+    await postJson(
+      `${uiBase}/api/sessions/${benchSessionId}/submit`,
+      authHeaders,
+      { keystrokes: payload },
+    ),
   );
   const coldLatencyMs = performance.now() - coldStart;
-  console.info(`  status=${String(coldRes.status)} latência=${coldLatencyMs.toFixed(1)}ms`);
-  console.info('');
+  console.info(
+    `  status=${String(coldRes.status)} latência=${coldLatencyMs.toFixed(1)}ms`,
+  );
+  console.info("");
 
-  console.info('Benchmark autocannon DIRECT no backend (10 conexões, 10s, 1500 eventos):');
-  const direct = await runAutocannon(backendUrl + `/sessions/${benchSessionId}/submit`, authHeaders, body);
-  printReport('', direct);
-  console.info('');
+  console.info(
+    "Benchmark autocannon DIRECT no backend (10 conexões, 10s, 1500 eventos):",
+  );
+  const direct = await runAutocannon(
+    backendUrl + `/sessions/${benchSessionId}/submit`,
+    authHeaders,
+    body,
+  );
+  printReport("", direct);
+  console.info("");
 
-  console.info(`Benchmark autocannon VIA UI Next (${uiBase}/api, 10 conexões, 10s, 1500 eventos):`);
-  const viaUi = await runAutocannon(`${uiBase}/api/sessions/${benchSessionId}/submit`, authHeaders, body);
-  printReport('', viaUi);
-  console.info(`Overhead da UI (p95): +${(viaUi.p95Ms - direct.p95Ms).toFixed(1)}ms`);
-  console.info('');
+  console.info(
+    `Benchmark autocannon VIA UI Next (${uiBase}/api, 10 conexões, 10s, 1500 eventos):`,
+  );
+  const viaUi = await runAutocannon(
+    `${uiBase}/api/sessions/${benchSessionId}/submit`,
+    authHeaders,
+    body,
+  );
+  printReport("", viaUi);
+  console.info(
+    `Overhead da UI (p95): +${(viaUi.p95Ms - direct.p95Ms).toFixed(1)}ms`,
+  );
+  console.info("");
 
-  console.info('Cenário interativo cena A (um usuário, submits sequenciais VIA UI, 1500 eventos, sessão nova a cada submit):');
-  const interactive = await runInteractiveSubmits(backendUrl, uiBase, authHeaders, lessonId, payload);
+  console.info(
+    "Cenário interativo cena A (um usuário, submits sequenciais VIA UI, 1500 eventos, sessão nova a cada submit):",
+  );
+  const interactive = await runInteractiveSubmits(
+    backendUrl,
+    uiBase,
+    authHeaders,
+    lessonId,
+    payload,
+  );
   const interactiveFulfilled = interactive.averageMs <= 150;
-  console.info('  submits: ' + String(interactive.total));
+  console.info("  submits: " + String(interactive.total));
   console.info(`  latência média: ${interactive.averageMs.toFixed(1)}ms`);
   console.info(`  latência pico: ${interactive.maxMs.toFixed(1)}ms`);
   console.info(
-    `RNF06 cena A interativa (média ≤ 150ms): ${interactiveFulfilled ? 'DENTRO DO BUDGET' : 'ACIMA DO BUDGET'}`
+    `RNF06 cena A interativa (média ≤ 150ms): ${interactiveFulfilled ? "DENTRO DO BUDGET" : "ACIMA DO BUDGET"}`,
   );
-  console.info('');
+  console.info("");
 
-  server.closeAllConnections();
-  await new Promise<void>((resolve) => {
-    server.close(() => resolve());
-  });
+  await stop();
   await dataSource.destroy();
   fs.rmSync(tempDir, { recursive: true, force: true });
 }
 
 main().catch(async (error: unknown) => {
-  console.error('[bench:cena-a] Falha ao executar benchmark', error);
+  console.error("[bench:cena-a] Falha ao executar benchmark", error);
   process.exit(1);
 });

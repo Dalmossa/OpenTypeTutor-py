@@ -1,7 +1,7 @@
-import type { IUserRepository } from '../../domain/repositories/IUserRepository.js';
-import type { User } from '../../domain/entities/User.js';
-import type { SessionId } from '../../domain/value-objects/SessionId.js';
-import type { Email } from '../../domain/value-objects/Email.js';
+import type { IUserRepository } from "../../domain/repositories/IUserRepository.js";
+import { User } from "../../domain/entities/User.js";
+import type { SessionId } from "../../domain/value-objects/SessionId.js";
+import type { Email } from "../../domain/value-objects/Email.js";
 
 export class InMemoryUserRepository implements IUserRepository {
   private users = new Map<string, User>();
@@ -34,6 +34,24 @@ export class InMemoryUserRepository implements IUserRepository {
       }
     }
     return false;
+  }
+
+  async updatePassword(
+    userId: SessionId,
+    newPasswordHash: string,
+  ): Promise<void> {
+    await Promise.resolve();
+    const user = this.users.get(userId.value);
+    if (!user) return;
+    // User é imutável - cria nova instância com novo passwordHash
+    const updated = User.create({
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      passwordHash: newPasswordHash,
+      createdAt: user.createdAt,
+    });
+    this.users.set(userId.value, updated);
   }
 
   clear(): void {

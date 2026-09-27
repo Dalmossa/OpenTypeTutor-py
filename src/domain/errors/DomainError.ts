@@ -96,3 +96,35 @@ export class BreakRequiredError extends DomainError {
     super(message);
   }
 }
+
+export class MacroBreakRequiredError extends DomainError {
+  readonly code = "MACRO_BREAK_REQUIRED";
+  readonly statusCode = 409;
+  constructor(message: string) {
+    super(message);
+  }
+}
+
+export class TokenExpiredError extends DomainError {
+  readonly code = "TOKEN_EXPIRED";
+  readonly statusCode = 401;
+  constructor(message: string) {
+    super(message);
+  }
+}
+
+export class TokenInvalidError extends DomainError {
+  readonly code = "TOKEN_INVALID";
+  readonly statusCode = 401;
+  constructor(message: string) {
+    super(message);
+  }
+}
+
+export class TokenAlreadyUsedError extends DomainError {
+  readonly code = "TOKEN_ALREADY_USED";
+  readonly statusCode = 409;
+  constructor(message: string) {
+    super(message);
+  }
+}

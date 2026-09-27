@@ -1,32 +1,45 @@
-import type { ITokenService } from '../../application/ports/ITokenService.js';
-import { AppError } from '../../shared/errors/AppError.js';
-import { signToken, verifyToken, InvalidTokenError, TokenExpiredError } from './jwt.js';
+import type { ITokenService } from "../../application/ports/ITokenService.js";
+import { AppError } from "../../shared/errors/AppError.js";
+import {
+  signToken,
+  verifyToken,
+  InvalidTokenError,
+  TokenExpiredError,
+  type TokenPayload,
+} from "./jwt.js";
 import {
   generateRefreshToken,
   verifyRefreshToken,
   revokeRefreshToken,
-} from './refreshToken.js';
+  revokeAllRefreshTokensForUser,
+} from "./refreshToken.js";
 
 export class JwtTokenService implements ITokenService {
-  signAccessToken(userId: string): string {
-    return signToken(userId);
+  signAccessToken(userId: string, role: "user" | "admin" = "user"): string {
+    return signToken(userId, role);
   }
 
   signRefreshToken(userId: string): string {
     return generateRefreshToken(userId);
   }
 
-  verifyAccessToken(token: string): string {
+  verifyAccessToken(token: string): TokenPayload {
     try {
-      return verifyToken(token).userId;
+      return verifyToken(token);
     } catch (error) {
       if (error instanceof TokenExpiredError) {
-        throw AppError.unauthorized('TOKEN_EXPIRED', 'Token de acesso expirado');
+        throw AppError.unauthorized(
+          "TOKEN_EXPIRED",
+          "Token de acesso expirado",
+        );
       }
       if (error instanceof InvalidTokenError) {
-        throw AppError.unauthorized('INVALID_TOKEN', 'Token de acesso inválido');
+        throw AppError.unauthorized(
+          "INVALID_TOKEN",
+          "Token de acesso inválido",
+        );
       }
-      throw AppError.unauthorized('UNAUTHORIZED', 'Token de acesso inválido');
+      throw AppError.unauthorized("UNAUTHORIZED", "Token de acesso inválido");
     }
   }
 
@@ -37,5 +50,9 @@ export class JwtTokenService implements ITokenService {
 
   revokeRefreshToken(jti: string): void {
     revokeRefreshToken(jti);
+  }
+
+  revokeAllRefreshTokensForUser(userId: string): number {
+    return revokeAllRefreshTokensForUser(userId);
   }
 }

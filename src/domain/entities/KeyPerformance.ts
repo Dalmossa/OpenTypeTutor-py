@@ -1,8 +1,10 @@
-import { SessionId } from '../value-objects/SessionId.js';
-import { Layout } from '../value-objects/Layout.js';
-import { adaptiveParams } from '../config/adaptiveParams.js';
+import { SessionId } from "../value-objects/SessionId.js";
+import { Layout } from "../value-objects/Layout.js";
+import { adaptiveParams } from "../config/adaptiveParams.js";
+import { MS_PER_DAY } from "../config/timeUnits.js";
 
-export type MasteryState = 'UNKNOWN' | 'LEARNING' | 'CONSOLIDATING' | 'MASTERED' | 'WEAK';
+export type MasteryState =
+  "UNKNOWN" | "LEARNING" | "CONSOLIDATING" | "MASTERED" | "WEAK";
 
 export interface KeyPerformanceProps {
   id?: SessionId;
@@ -53,17 +55,20 @@ interface KeyPerformanceInternalProps {
 
 const LATENCY_REFERENCE = adaptiveParams.LATENCY_REFERENCE_MS;
 const MASTERY_ATTEMPTS = adaptiveParams.MASTERY_ATTEMPTS;
-const MASTERY_CONSECUTIVE_SESSIONS = adaptiveParams.MASTERY_CONSECUTIVE_SESSIONS;
+const MASTERY_CONSECUTIVE_SESSIONS =
+  adaptiveParams.MASTERY_CONSECUTIVE_SESSIONS;
+const MASTERY_REGRESSION_SESSIONS = adaptiveParams.MASTERY_REGRESSION_SESSIONS;
 const UNKNOWN_ATTEMPTS = adaptiveParams.UNKNOWN_ATTEMPTS;
 const WEAK_THRESHOLD = adaptiveParams.WEAK_THRESHOLD;
 const CONSOLIDATING_THRESHOLD = adaptiveParams.CONSOLIDATING_THRESHOLD;
 const RECENCY_LAMBDA = adaptiveParams.RECENCY_LAMBDA;
 
-// Formula constants from PRD §16.5
+// Pesos do WeakKeyScore (PRD §16.5) — o valor mora em `adaptiveParams`; aqui
+// só o alias, como todos os outros parâmetros que esta entidade consome.
 const WEAK_KEY_SCORE_WEIGHTS = {
-  ERROR_RATE: 0.50,
-  LATENCY_SCORE: 0.30,
-  RECENCY_SCORE: 0.20,
+  ERROR_RATE: adaptiveParams.WEAK_KEY_SCORE_W_ERROR_RATE,
+  LATENCY_SCORE: adaptiveParams.WEAK_KEY_SCORE_W_LATENCY,
+  RECENCY_SCORE: adaptiveParams.WEAK_KEY_SCORE_W_RECENCY,
 } as const;
 
 export class KeyPerformance {
@@ -95,15 +100,15 @@ export class KeyPerformance {
 
   static create(props: KeyPerformanceProps): KeyPerformance {
     if (!(props.userId instanceof SessionId)) {
-      throw new Error('userId inválido');
+      throw new Error("userId inválido");
     }
 
     if (!(props.layout instanceof Layout)) {
-      throw new Error('Layout inválido');
+      throw new Error("Layout inválido");
     }
 
     if (!props.logicalKey || props.logicalKey.length === 0) {
-      throw new Error('logicalKey é obrigatório');
+      throw new Error("logicalKey é obrigatório");
     }
 
     return new KeyPerformance({
@@ -117,11 +122,13 @@ export class KeyPerformance {
       lastPracticedAt: props.lastPracticedAt ?? null,
       consecutiveMasterySessions: props.consecutiveMasterySessions ?? 0,
       regressionSessions: props.regressionSessions ?? 0,
-      masteryState: props.masteryState ?? 'UNKNOWN',
+      masteryState: props.masteryState ?? "UNKNOWN",
     });
   }
 
-  private static createFromInternal(props: KeyPerformanceInternalProps): KeyPerformance {
+  private static createFromInternal(
+    props: KeyPerformanceInternalProps,
+  ): KeyPerformance {
     return new KeyPerformance(props);
   }
 
@@ -146,7 +153,8 @@ export class KeyPerformance {
 
   get recencyScore(): number {
     if (!this.lastPracticedAt) return 1;
-    const daysSinceLastPractice = (Date.now() - this.lastPracticedAt.getTime()) / (1000 * 60 * 60 * 24);
+    const daysSinceLastPractice =
+      (Date.now() - this.lastPracticedAt.getTime()) / MS_PER_DAY;
     return 1 - Math.exp(-RECENCY_LAMBDA * daysSinceLastPractice);
   }
 
@@ -161,35 +169,42 @@ export class KeyPerformance {
   private calculateMasteryState(): MasteryState {
     // RN08: attempts < 5 -> UNKNOWN
     if (this.attempts < UNKNOWN_ATTEMPTS) {
-      return 'UNKNOWN';
+      return "UNKNOWN";
     }
 
     // RN09: Check if MASTERED
-    if (this.masteryState === 'MASTERED') {
-      return 'MASTERED';
+    if (this.masteryState === "MASTERED") {
+      return "MASTERED";
     }
 
     // Check mastery criteria
-    if (this.attempts >= MASTERY_ATTEMPTS && this.consecutiveMasterySessions >= MASTERY_CONSECUTIVE_SESSIONS) {
-      return 'MASTERED';
+    if (
+      this.attempts >= MASTERY_ATTEMPTS &&
+      this.consecutiveMasterySessions >= MASTERY_CONSECUTIVE_SESSIONS
+    ) {
+      return "MASTERED";
     }
 
     // Classify by WeakKeyScore
     if (this.weakKeyScore >= WEAK_THRESHOLD) {
-      return 'WEAK';
+      return "WEAK";
     }
     if (this.weakKeyScore >= CONSOLIDATING_THRESHOLD) {
-      return 'CONSOLIDATING';
+      return "CONSOLIDATING";
     }
-    return 'LEARNING';
+    return "LEARNING";
   }
 
-  recordAttempt(attempt: { isError: boolean; latencyMs: number }): KeyPerformance {
+  recordAttempt(attempt: {
+    isError: boolean;
+    latencyMs: number;
+  }): KeyPerformance {
     const newAttempts = this.attempts + 1;
     const newErrors = this.errors + (attempt.isError ? 1 : 0);
 
     // Update average latency (only for non-control keys, but we assume valid latency here)
-    const totalLatency = this.averageLatencyMs * this.attempts + attempt.latencyMs;
+    const totalLatency =
+      this.averageLatencyMs * this.attempts + attempt.latencyMs;
     const newAverageLatencyMs = Math.round(totalLatency / newAttempts);
 
     const newProps: KeyPerformanceInternalProps = {
@@ -209,20 +224,22 @@ export class KeyPerformance {
     let newConsecutiveMasterySessions = this.consecutiveMasterySessions;
     let newRegressionSessions = this.regressionSessions;
 
-    if (this.masteryState === 'MASTERED') {
+    if (this.masteryState === "MASTERED") {
       // RN10: Regression counter for MASTERED keys
       if (isMasteryApproved) {
         newRegressionSessions = 0; // Reset on approved session
       } else {
         newRegressionSessions += 1;
         // Check for regression (3 consecutive non-approved)
-        if (newRegressionSessions >= 3) {
+        if (newRegressionSessions >= MASTERY_REGRESSION_SESSIONS) {
           // Regress - calculate new state based on WeakKeyScore
           const newProps = this.toInternalProps();
           newProps.regressionSessions = 0;
-          newProps.masteryState = 'LEARNING'; // Will be recalculated
+          newProps.masteryState = "LEARNING"; // Will be recalculated
           const regressedKp = KeyPerformance.createFromInternal(newProps);
-          return regressedKp.withMasteryState(regressedKp.calculateMasteryState());
+          return regressedKp.withMasteryState(
+            regressedKp.calculateMasteryState(),
+          );
         }
       }
     } else {
@@ -235,10 +252,13 @@ export class KeyPerformance {
       }
 
       // Check for mastery promotion
-      if (newConsecutiveMasterySessions >= MASTERY_CONSECUTIVE_SESSIONS && this.attempts >= MASTERY_ATTEMPTS) {
+      if (
+        newConsecutiveMasterySessions >= MASTERY_CONSECUTIVE_SESSIONS &&
+        this.attempts >= MASTERY_ATTEMPTS
+      ) {
         const newProps = this.toInternalProps();
         newProps.consecutiveMasterySessions = 0;
-        newProps.masteryState = 'MASTERED';
+        newProps.masteryState = "MASTERED";
         return KeyPerformance.createFromInternal(newProps);
       }
     }
@@ -280,9 +300,11 @@ export class KeyPerformance {
   }
 
   equals(other: KeyPerformance): boolean {
-    return this.userId.equals(other.userId) &&
+    return (
+      this.userId.equals(other.userId) &&
       this.logicalKey === other.logicalKey &&
-      this.layout.equals(other.layout);
+      this.layout.equals(other.layout)
+    );
   }
 
   toDTO(): KeyPerformanceDTO {

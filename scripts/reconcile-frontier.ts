@@ -4,6 +4,7 @@ import Database from "better-sqlite3";
 import { randomUUID } from "node:crypto";
 import { Lesson } from "../src/domain/entities/Lesson.js";
 import { ProgressCard } from "../src/domain/entities/ProgressCard.js";
+import { SessionMetrics } from "../src/domain/entities/SessionMetrics.js";
 import { PedagogicalProgressionEngine } from "../src/domain/services/PedagogicalProgressionEngine.js";
 import { Layout } from "../src/domain/value-objects/Layout.js";
 import { PedagogicalPhase } from "../src/domain/value-objects/PedagogicalPhase.js";
@@ -85,12 +86,20 @@ function countBackspaces(keystrokes: string | null): number {
   }
 }
 
+// Cartão sintético usado só para consultar a engine. `getNextLesson` e
+// `canAdvance` só leem `phase`, `lessonNumber`, `discomfortReported` e os dois
+// contadores de backspace — nunca o `userId`. Ainda assim ele recebe o
+// `userId` real: passar o `lessonId` no lugar (o que este script fazia) seria
+// um erro que só apareceria no dia em que a engine passasse a chavear por
+// usuário, e um replay silenciosamente errado é o pior defeito possível num
+// script de migração de dados.
 function cardFor(
+  userId: string,
   position: FrontierPosition,
   currentBackspaceCount: number,
 ): ProgressCard {
   return ProgressCard.create({
-    userId: SessionId.create(position.id),
+    userId: SessionId.create(userId),
     date: new Date(),
     phase: position.phase,
     lessonNumber: position.lessonInPhase,
@@ -178,7 +187,8 @@ function reconcileUser(
     const expected: Lesson | null =
       position === null
         ? first
-        : engine.getNextLesson(cardFor(position, bFrontier), true).lesson;
+        : engine.getNextLesson(cardFor(userId, position, bFrontier), true)
+            .lesson;
 
     if (expected === null) {
       report.reviewsSkipped += 1;
@@ -194,7 +204,17 @@ function reconcileUser(
         ? (JSON.parse(s.metrics) as { charactersTyped?: number })
         : {};
     const charactersTyped = metrics.charactersTyped ?? 0;
-    if ((s.activeDurationMs ?? 0) < 3000 || charactersTyped < 5) {
+    // RN22 - o limiar vem do domínio, não de literais aqui. Um script de
+    // reconciliação existe para reproduzir a regra *de produção*: uma cópia
+    // inlineada dos limiares continuaria "funcionando" depois de alguém mudar
+    // `adaptiveParams`, e moveria a fronteira para a posição errada sem erro
+    // nenhum — que é justamente o defeito que este script existe para corrigir.
+    if (
+      SessionMetrics.isInsufficientDataFor(
+        s.activeDurationMs ?? 0,
+        charactersTyped,
+      )
+    ) {
       report.insufficientSkipped += 1;
       continue;
     }

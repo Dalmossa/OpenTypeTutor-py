@@ -13,7 +13,7 @@ Projeto **web único** — o cliente desktop (Python/customtkinter) foi desconti
 | Camada       | Tecnologia                                                   |
 | ------------ | ------------------------------------------------------------ |
 | Runtime      | Node.js ≥ 20 (CI usa 22) + TypeScript `strict`               |
-| HTTP         | Express 5 (bootstrap via `@nestjs/platform-express`)         |
+| HTTP         | NestJS 12 (adapter `@nestjs/platform-express`; ADR-016/024)  |
 | Persistência | TypeORM + SQLite (`better-sqlite3`), migrações versionadas   |
 | Validação    | Zod                                                          |
 | Autenticação | bcrypt (12 rounds) + JWT (access 15m / refresh 30d rotativo) |
@@ -109,13 +109,17 @@ src/
 │   ├── services/     #   MetricsEngine, AdaptiveLessonEngine, ProgressionEngine
 │   ├── repositories/ #   interfaces apenas (IUserRepository, …)
 │   └── errors/       #   DomainError subclasses
-├── application/      # Casos de uso + DTOs (orquestra domínio + interfaces de repo)
+├── application/      # Casas de uso + DTOs (orquestra domínio + interfaces de repo)
 ├── infrastructure/   # Implementações (TypeORM, SQLite, bcrypt, JWT, pino)
-├── presentation/     # Express, controllers, rotas, middlewares, validators
+├── presentation/     # Nest: controllers, guards, filtros, middlewares, validators
+├── e2e/              # fullFlow.test.ts — HTTP → use case → domínio → repo → SQLite
+├── nestRuntime.ts    # Composition root ÚNICO (ADR-024)
 └── shared/           # AppError, catálogo de erros (pt-BR), ERROR_CODES
 ```
 
 Regra de dependência: `presentation → application → domain ← infrastructure` — o domínio **nunca** importa `express`, `typeorm`, `bcrypt`, `jsonwebtoken`, `zod` nem `pino`.
+
+Todo o grafo de dependências é montado em **`src/nestRuntime.ts`**, e o runtime, o e2e e o bench consomem o mesmo `createNestApp` — ou seja, os testes de integração exercitam o app que sobe em produção. Não existe um segundo composition root (ADR-024).
 
 A UI web segue o protocolo MVC de apresentação (ADR-018) e **não contém regras de negócio** — só consome REST. Os modelos de UI são DTOs, nunca entidades de domínio.
 

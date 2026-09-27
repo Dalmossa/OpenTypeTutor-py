@@ -1,13 +1,13 @@
-import type { DataSource, Repository } from 'typeorm';
-import type { IUserRepository } from '../../domain/repositories/IUserRepository.js';
-import type { User } from '../../domain/entities/User.js';
-import type { SessionId } from '../../domain/value-objects/SessionId.js';
-import type { Email } from '../../domain/value-objects/Email.js';
-import { Email as EmailValue } from '../../domain/value-objects/Email.js';
-import { SessionId as SessionIdValue } from '../../domain/value-objects/SessionId.js';
-import { User as UserValue } from '../../domain/entities/User.js';
-import { UserEntity, type UserRow } from '../database/entities/index.js';
-import { toIso, fromIso } from './dateTime.js';
+import type { DataSource, Repository } from "typeorm";
+import type { IUserRepository } from "../../domain/repositories/IUserRepository.js";
+import type { User } from "../../domain/entities/User.js";
+import type { SessionId } from "../../domain/value-objects/SessionId.js";
+import type { Email } from "../../domain/value-objects/Email.js";
+import { Email as EmailValue } from "../../domain/value-objects/Email.js";
+import { SessionId as SessionIdValue } from "../../domain/value-objects/SessionId.js";
+import { User as UserValue } from "../../domain/entities/User.js";
+import { UserEntity, type UserRow } from "../database/entities/index.js";
+import { toIso, fromIso } from "./dateTime.js";
 
 function toRow(user: User): UserRow {
   return {
@@ -16,6 +16,7 @@ function toRow(user: User): UserRow {
     email: user.email.value,
     passwordHash: user.passwordHash,
     createdAt: toIso(user.createdAt),
+    role: user.role,
   };
 }
 
@@ -26,6 +27,7 @@ function fromRow(row: UserRow): User {
     email: EmailValue.create(row.email),
     passwordHash: row.passwordHash,
     createdAt: fromIso(row.createdAt),
+    role: row.role as "user" | "admin",
   });
 }
 
@@ -51,6 +53,18 @@ export class TypeOrmUserRepository implements IUserRepository {
   }
 
   async existsByEmail(email: Email): Promise<boolean> {
-    return (await this.repo.findOne({ where: { email: email.value } })) !== null;
+    return (
+      (await this.repo.findOne({ where: { email: email.value } })) !== null
+    );
+  }
+
+  async updatePassword(
+    userId: SessionId,
+    newPasswordHash: string,
+  ): Promise<void> {
+    await this.repo.update(
+      { id: userId.value },
+      { passwordHash: newPasswordHash },
+    );
   }
 }

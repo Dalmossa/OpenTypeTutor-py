@@ -1,18 +1,35 @@
-import { DataSource, type MigrationInterface } from 'typeorm';
-import { databaseParams } from './databaseParams.js';
-import { UserEntity, UserProfileEntity, LessonEntity, TypingSessionEntity, KeyPerformanceEntity, ProgressEntity, ProgressCardEntity, PracticePacingEntity, DailyMetricsAggregateEntity, KeyMasteryTransitionEntity } from './entities/index.js';
-import { InitSchema1700000000000 } from './migrations/1700000000000-InitSchema.js';
-import { SeedCurriculum1700000000001 } from './migrations/1700000000001-SeedCurriculum.js';
-import { SeedCurriculumLevels2and31700000000002 } from './migrations/1700000000002-SeedCurriculumLevels2and3.js';
-import { SeedCursoDigitacao1700000000003 } from './migrations/1700000000003-SeedCursoDigitacao.js';
-import { AddPedagogicalPhaseColumns1700000000004 } from './migrations/1700000000004-AddPedagogicalPhaseColumns.js';
-import { SeedPedagogicalCurriculum1700000000005 } from './migrations/1700000000005-SeedPedagogicalCurriculum.js';
-import { AddProgressCardTable1700000000006 } from './migrations/1700000000006-AddProgressCardTable.js';
-import { AddPracticePacingTable1700000000007 } from './migrations/1700000000007-AddPracticePacingTable.js';
-import { AddDailyMetricsAggregateTable1700000000008 } from './migrations/1700000000008-AddDailyMetricsAggregateTable.js';
-import { AddDashboardFields1700000000009 } from './migrations/1700000000009-AddDashboardFields.js';
-import { AddKeyMasteryTransitionTable17000000000010 } from './migrations/17000000000010-AddKeyMasteryTransitionTable.js';
-import { AddDashboardHeatmapCounts17000000000011 } from './migrations/17000000000011-AddDashboardHeatmapCounts.js';
+import { DataSource, type MigrationInterface } from "typeorm";
+import { databaseParams } from "./databaseParams.js";
+import {
+  UserEntity,
+  UserProfileEntity,
+  LessonEntity,
+  TypingSessionEntity,
+  KeyPerformanceEntity,
+  ProgressEntity,
+  ProgressCardEntity,
+  PracticePacingEntity,
+  DailyMetricsAggregateEntity,
+  KeyMasteryTransitionEntity,
+  AdminSettingsEntity,
+  PasswordResetTokenEntity,
+} from "./entities/index.js";
+import { InitSchema1700000000000 } from "./migrations/1700000000000-InitSchema.js";
+import { SeedCurriculum1700000000001 } from "./migrations/1700000000001-SeedCurriculum.js";
+import { SeedCurriculumLevels2and31700000000002 } from "./migrations/1700000000002-SeedCurriculumLevels2and3.js";
+import { SeedCursoDigitacao1700000000003 } from "./migrations/1700000000003-SeedCursoDigitacao.js";
+import { AddPedagogicalPhaseColumns1700000000004 } from "./migrations/1700000000004-AddPedagogicalPhaseColumns.js";
+import { SeedPedagogicalCurriculum1700000000005 } from "./migrations/1700000000005-SeedPedagogicalCurriculum.js";
+import { AddProgressCardTable1700000000006 } from "./migrations/1700000000006-AddProgressCardTable.js";
+import { AddPracticePacingTable1700000000007 } from "./migrations/1700000000007-AddPracticePacingTable.js";
+import { AddDailyMetricsAggregateTable1700000000008 } from "./migrations/1700000000008-AddDailyMetricsAggregateTable.js";
+import { AddDashboardFields1700000000009 } from "./migrations/1700000000009-AddDashboardFields.js";
+import { AddKeyMasteryTransitionTable17000000000010 } from "./migrations/17000000000010-AddKeyMasteryTransitionTable.js";
+import { AddDashboardHeatmapCounts17000000000011 } from "./migrations/17000000000011-AddDashboardHeatmapCounts.js";
+import { AddMacroBreakColumns1700000000012 } from "./migrations/1700000000012-AddMacroBreakColumns.js";
+import { AddAdminSettingsTable1700000000013 } from "./migrations/1700000000013-AddAdminSettingsTable.js";
+import { AddPasswordResetTokenTable1700000000014 } from "./migrations/1700000000014-AddPasswordResetTokenTable.js";
+import { AddUserRoleColumn1700000000015 } from "./migrations/1700000000015-AddUserRoleColumn.js";
 
 type DataSourceConfig = {
   database?: string;
@@ -29,6 +46,10 @@ const SCHEMA_MIGRATIONS: (new () => MigrationInterface)[] = [
   AddDashboardFields1700000000009,
   AddKeyMasteryTransitionTable17000000000010,
   AddDashboardHeatmapCounts17000000000011,
+  AddMacroBreakColumns1700000000012,
+  AddAdminSettingsTable1700000000013,
+  AddPasswordResetTokenTable1700000000014,
+  AddUserRoleColumn1700000000015,
 ];
 const ALL_MIGRATIONS: (new () => MigrationInterface)[] = [
   InitSchema1700000000000,
@@ -43,20 +64,39 @@ const ALL_MIGRATIONS: (new () => MigrationInterface)[] = [
   AddDashboardFields1700000000009,
   AddKeyMasteryTransitionTable17000000000010,
   AddDashboardHeatmapCounts17000000000011,
+  AddMacroBreakColumns1700000000012,
+  AddAdminSettingsTable1700000000013,
+  AddPasswordResetTokenTable1700000000014,
+  AddUserRoleColumn1700000000015,
 ];
 
-export function createDataSource(config?: Partial<DataSourceConfig>): DataSource {
+export function createDataSource(
+  config?: Partial<DataSourceConfig>,
+): DataSource {
   return new DataSource({
-    type: 'better-sqlite3',
+    type: "better-sqlite3",
     database: config?.database ?? databaseParams.DATABASE_PATH,
-    entities: [UserEntity, UserProfileEntity, LessonEntity, TypingSessionEntity, KeyPerformanceEntity, ProgressEntity, ProgressCardEntity, PracticePacingEntity, DailyMetricsAggregateEntity, KeyMasteryTransitionEntity],
+    entities: [
+      UserEntity,
+      UserProfileEntity,
+      LessonEntity,
+      TypingSessionEntity,
+      KeyPerformanceEntity,
+      ProgressEntity,
+      ProgressCardEntity,
+      PracticePacingEntity,
+      DailyMetricsAggregateEntity,
+      KeyMasteryTransitionEntity,
+      AdminSettingsEntity,
+      PasswordResetTokenEntity,
+    ],
     migrations: config?.migrations ?? ALL_MIGRATIONS,
     synchronize: false,
     logging: false,
     enableWAL: databaseParams.ENABLE_WAL,
     timeout: databaseParams.BUSY_TIMEOUT_MS,
     prepareDatabase: (db: SqliteDatabaseHandle) => {
-      db.pragma('foreign_keys = ON');
+      db.pragma("foreign_keys = ON");
     },
   });
 }

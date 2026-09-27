@@ -1,31 +1,34 @@
-import type { ITypingSessionRepository } from '../../domain/repositories/ITypingSessionRepository.js';
-import type { IKeyPerformanceRepository } from '../../domain/repositories/IKeyPerformanceRepository.js';
-import type { IProgressRepository } from '../../domain/repositories/IProgressRepository.js';
-import type { ILessonRepository } from '../../domain/repositories/ILessonRepository.js';
-import type { IPracticePacingRepository } from '../../domain/repositories/IPracticePacingRepository.js';
-import type { IDailyMetricsAggregateRepository } from '../../domain/repositories/IDailyMetricsAggregateRepository.js';
-import type { IKeyMasteryTransitionRepository } from '../../domain/repositories/IKeyMasteryTransitionRepository.js';
-import type { IUserProfileRepository } from '../../domain/repositories/IUserProfileRepository.js';
-import type { TypingSession } from '../../domain/entities/TypingSession.js';
-import { KeyPerformance } from '../../domain/entities/KeyPerformance.js';
-import type { MasteryState } from '../../domain/entities/KeyPerformance.js';
-import { KeystrokeEvent } from '../../domain/entities/KeystrokeEvent.js';
-import { Progress } from '../../domain/entities/Progress.js';
-import { PracticePacingState } from '../../domain/entities/PracticePacingState.js';
-import { DailyMetricsAggregate } from '../../domain/entities/DailyMetricsAggregate.js';
-import { KeyMasteryTransition } from '../../domain/entities/KeyMasteryTransition.js';
-import { SessionId } from '../../domain/value-objects/SessionId.js';
-import { Timezone } from '../../domain/value-objects/Timezone.js';
-import { MetricsEngine } from '../../domain/services/MetricsEngine.js';
-import { ProgressionEngine } from '../../domain/services/ProgressionEngine.js';
-import { adaptiveParams } from '../../domain/config/adaptiveParams.js';
+import type { ITypingSessionRepository } from "../../domain/repositories/ITypingSessionRepository.js";
+import type { IKeyPerformanceRepository } from "../../domain/repositories/IKeyPerformanceRepository.js";
+import type { IProgressRepository } from "../../domain/repositories/IProgressRepository.js";
+import type { ILessonRepository } from "../../domain/repositories/ILessonRepository.js";
+import type { IPracticePacingRepository } from "../../domain/repositories/IPracticePacingRepository.js";
+import type { IDailyMetricsAggregateRepository } from "../../domain/repositories/IDailyMetricsAggregateRepository.js";
+import type { IKeyMasteryTransitionRepository } from "../../domain/repositories/IKeyMasteryTransitionRepository.js";
+import type { IUserProfileRepository } from "../../domain/repositories/IUserProfileRepository.js";
+import type { TypingSession } from "../../domain/entities/TypingSession.js";
+import { KeyPerformance } from "../../domain/entities/KeyPerformance.js";
+import type { MasteryState } from "../../domain/entities/KeyPerformance.js";
+import { KeystrokeEvent } from "../../domain/entities/KeystrokeEvent.js";
+import { Progress } from "../../domain/entities/Progress.js";
+import { PracticePacingState } from "../../domain/entities/PracticePacingState.js";
+import { DailyMetricsAggregate } from "../../domain/entities/DailyMetricsAggregate.js";
+import { KeyMasteryTransition } from "../../domain/entities/KeyMasteryTransition.js";
+import { SessionId } from "../../domain/value-objects/SessionId.js";
+import { Timezone } from "../../domain/value-objects/Timezone.js";
+import { MetricsEngine } from "../../domain/services/MetricsEngine.js";
+import { ProgressionEngine } from "../../domain/services/ProgressionEngine.js";
+import { adaptiveParams } from "../../domain/config/adaptiveParams.js";
 import {
   InvalidSessionTransitionError,
   SessionNotFoundError,
-} from '../../domain/errors/DomainError.js';
-import { assertSessionOwner } from '../services/sessionCommand.js';
-import type { SubmitTypingSessionDTO, SubmitTypingSessionResponseDTO } from '../dtos/SessionDTOs.js';
-import type { Clock } from '../dtos/PracticePacingDTOs.js';
+} from "../../domain/errors/DomainError.js";
+import { assertSessionOwner } from "../services/sessionCommand.js";
+import type {
+  SubmitTypingSessionDTO,
+  SubmitTypingSessionResponseDTO,
+} from "../dtos/SessionDTOs.js";
+import type { Clock } from "../dtos/PracticePacingDTOs.js";
 
 export class SubmitTypingSession {
   constructor(
@@ -37,31 +40,41 @@ export class SubmitTypingSession {
     private readonly aggregateRepository: IDailyMetricsAggregateRepository,
     private readonly userProfileRepository: IUserProfileRepository,
     private readonly masteryTransitionRepository: IKeyMasteryTransitionRepository,
-    private readonly now: Clock = () => new Date()
+    private readonly now: Clock = () => new Date(),
   ) {}
 
-  async execute(dto: SubmitTypingSessionDTO): Promise<SubmitTypingSessionResponseDTO> {
-    const session = await this.sessionRepository.findById(SessionId.create(dto.sessionId));
+  async execute(
+    dto: SubmitTypingSessionDTO,
+  ): Promise<SubmitTypingSessionResponseDTO> {
+    const session = await this.sessionRepository.findById(
+      SessionId.create(dto.sessionId),
+    );
     if (!session) {
-      throw new SessionNotFoundError('Sessão não encontrada');
+      throw new SessionNotFoundError("Sessão não encontrada");
     }
 
     assertSessionOwner(session, dto.userId);
 
     // RN14 - Submit idempotente: sessão COMPLETED retorna resultado cacheado, sem reprocessar
-    if (session.state === 'COMPLETED') {
+    if (session.state === "COMPLETED") {
       return this.toResponse(session);
     }
 
     // RN13 - Sessões ABANDONED jamais produzem atualização de desempenho/progresso
-    if (session.state === 'ABANDONED') {
-      throw new InvalidSessionTransitionError('Sessão abandonada não pode ser submetida');
+    if (session.state === "ABANDONED") {
+      throw new InvalidSessionTransitionError(
+        "Sessão abandonada não pode ser submetida",
+      );
     }
 
-    const events = dto.keystrokes.map(keystroke => KeystrokeEvent.create(keystroke));
+    const events = dto.keystrokes.map((keystroke) =>
+      KeystrokeEvent.create(keystroke),
+    );
     const sessionWithEvents = session.recordKeystrokes(events);
 
-    const completedSession = sessionWithEvents.complete(MetricsEngine.calculate(sessionWithEvents));
+    const completedSession = sessionWithEvents.complete(
+      MetricsEngine.calculate(sessionWithEvents),
+    );
     const metrics = MetricsEngine.calculate(completedSession);
     const finalizedSession = completedSession.setMetrics(metrics);
 
@@ -77,8 +90,19 @@ export class SubmitTypingSession {
       (await this.pacingRepository.findByUserId(session.userId)) ??
       PracticePacingState.create({ userId: session.userId });
     await this.pacingRepository.save(
-      pacing.recordCompletedSession(metrics.activeDurationMs, this.now())
+      pacing.recordCompletedSession(metrics.activeDurationMs, this.now()),
     );
+
+    // RN34 - registra lição completada para macro-pacing (após progresso avançar)
+    const lesson = await this.lessonRepository.findById(session.lessonId);
+    if (lesson) {
+      const updatedPacing =
+        (await this.pacingRepository.findByUserId(session.userId)) ??
+        PracticePacingState.create({ userId: session.userId });
+      await this.pacingRepository.save(
+        updatedPacing.recordLessonCompleted(this.now()),
+      );
+    }
 
     await this.applyDailyAggregate(sessionWithEvents, metrics, localDate);
 
@@ -89,7 +113,9 @@ export class SubmitTypingSession {
   private async resolveLocalDate(userId: SessionId): Promise<string> {
     const profile = await this.userProfileRepository.findByUserId(userId);
     const timezone =
-      profile !== null ? Timezone.create({ value: profile.timezone }) : Timezone.createDefault();
+      profile !== null
+        ? Timezone.create({ value: profile.timezone })
+        : Timezone.createDefault();
     return timezone.toLocalDateKey(this.now());
   }
 
@@ -99,10 +125,11 @@ export class SubmitTypingSession {
   private async applyDailyAggregate(
     session: TypingSession,
     metrics: ReturnType<typeof MetricsEngine.calculate>,
-    localDate: string
+    localDate: string,
   ): Promise<void> {
     if (
-      metrics.activeDurationMs < adaptiveParams.INSUFFICIENT_DATA_MIN_DURATION_MS ||
+      metrics.activeDurationMs <
+        adaptiveParams.INSUFFICIENT_DATA_MIN_DURATION_MS ||
       metrics.charactersTyped < adaptiveParams.INSUFFICIENT_DATA_MIN_CHARS
     ) {
       return;
@@ -113,7 +140,11 @@ export class SubmitTypingSession {
       .map((keystroke) => keystroke.logicalKey);
 
     const existing =
-      (await this.aggregateRepository.findByKey(session.userId, session.layout, localDate)) ??
+      (await this.aggregateRepository.findByKey(
+        session.userId,
+        session.layout,
+        localDate,
+      )) ??
       DailyMetricsAggregate.create({
         userId: session.userId,
         layout: session.layout,
@@ -123,13 +154,20 @@ export class SubmitTypingSession {
     await this.aggregateRepository.save(existing.merge(metrics, keys));
   }
 
-  private async applyKeystrokePerformance(session: TypingSession, localDate: string): Promise<void> {
+  private async applyKeystrokePerformance(
+    session: TypingSession,
+    localDate: string,
+  ): Promise<void> {
     const pendingByKey = new Map<string, KeyPerformance>();
     const baselineStates = new Map<string, MasteryState>();
 
     for (const keystroke of session.keystrokes) {
       if (keystroke.isControlKey()) continue;
-      if (keystroke.eventType !== 'CORRECT' && keystroke.eventType !== 'INCORRECT') continue;
+      if (
+        keystroke.eventType !== "CORRECT" &&
+        keystroke.eventType !== "INCORRECT"
+      )
+        continue;
 
       const keyId = `${keystroke.logicalKey}:${session.layout.value}`;
       const existing =
@@ -137,7 +175,7 @@ export class SubmitTypingSession {
         (await this.keyPerformanceRepository.findByUserIdAndLogicalKey(
           session.userId,
           keystroke.logicalKey,
-          session.layout
+          session.layout,
         )) ??
         KeyPerformance.create({
           userId: session.userId,
@@ -153,9 +191,9 @@ export class SubmitTypingSession {
       pendingByKey.set(
         keyId,
         existing.recordAttempt({
-          isError: keystroke.eventType === 'INCORRECT',
+          isError: keystroke.eventType === "INCORRECT",
           latencyMs: keystroke.latencyMs ?? 0,
-        })
+        }),
       );
     }
 
@@ -180,7 +218,7 @@ export class SubmitTypingSession {
             date: localDate,
             from,
             to: withSessionEnd.masteryState,
-          })
+          }),
         );
       }
     }
@@ -209,8 +247,14 @@ export class SubmitTypingSession {
     const metrics = session.metrics ?? MetricsEngine.calculate(session);
     return {
       sessionId: session.id.value,
-      state: 'COMPLETED',
-      metrics: metrics.toJSON(),
+      state: "COMPLETED",
+      // RN22 - a flag vai explícita porque o cliente precisa da decisão. Ele
+      // antes a rederivava dos números com literais próprios; com o motor no
+      // backend, mudar `adaptiveParams` muda a tela junto, e não só o banco.
+      metrics: {
+        ...metrics.toJSON(),
+        insufficientData: metrics.isInsufficientData(),
+      },
     };
   }
 }

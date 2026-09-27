@@ -56,6 +56,28 @@ export const ERROR_CODES: Record<string, ErrorCatalogEntry> = {
     message:
       "Hora de descansar: faça uma pausa de pelo menos 3 minutos (alongue os braços, beba água e mexa as pernas) antes de iniciar a próxima lição",
   },
+  MACRO_BREAK_REQUIRED: {
+    statusCode: 409,
+    message:
+      "Hora de uma pausa mais longa: você concluiu muitas lições seguidas. Faça uma pausa de 3 horas antes de continuar",
+  },
+  // Recuperação de senha. Distintos de INVALID_TOKEN/TOKEN_EXPIRED, que são do
+  // par de access/refresh tokens — aqui o token é de uso único e de redefinição.
+  TOKEN_INVALID: {
+    statusCode: 401,
+    message: "Token de recuperação inválido",
+  },
+  TOKEN_ALREADY_USED: {
+    statusCode: 409,
+    message: "Token de recuperação já utilizado",
+  },
+  FORBIDDEN: { statusCode: 403, message: "Acesso negado" },
+  CONFLICT: { statusCode: 409, message: "Conflito de estado" },
+  HTTP_ERROR: { statusCode: 500, message: "Erro HTTP inesperado" },
+  PASSWORD_TOO_SHORT: {
+    statusCode: 422,
+    message: "Senha deve ter pelo menos 8 caracteres",
+  },
 };
 
 export function findByErrorCode(code: string): ErrorCatalogEntry | undefined {

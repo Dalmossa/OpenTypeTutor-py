@@ -4,6 +4,12 @@ import { Test } from "@nestjs/testing";
 import type { INestApplication } from "@nestjs/common";
 import type { Server } from "node:http";
 import { AppError } from "../../shared/errors/AppError.js";
+import {
+  DiscomfortSignaledError,
+  ProfileNotOwnedError,
+  SessionNotOwnedError,
+  UserAlreadyExistsError,
+} from "../../domain/errors/DomainError.js";
 import type { LessonDTO } from "../../domain/entities/Lesson.js";
 import type { SessionMetricsProps } from "../../domain/entities/SessionMetrics.js";
 import type {
@@ -16,7 +22,11 @@ import type {
   GetUserResponseDTO,
   UpdateUserLayoutResponseDTO,
 } from "../../application/dtos/UserDTOs.js";
-import type { PracticeStatusDTO } from "../../application/dtos/PracticePacingDTOs.js";
+import type {
+  PracticeStatusDTO,
+  LessonPacingStatusDTO,
+} from "../../application/dtos/PracticePacingDTOs.js";
+import type { AdminSettingsDTO } from "../../application/dtos/AdminSettingsDTOs.js";
 import type { LessonPerformanceDTO } from "../../application/dtos/LessonPerformanceDTOs.js";
 import type {
   CheckErgonomicSafetyResponseDTO,
@@ -77,6 +87,24 @@ const PEDAGOGICAL_LESSON_FIXTURE: GetNextPedagogicalLessonResponseDTO = {
   progressCard: null,
 };
 
+const ADMIN_SETTINGS_FIXTURE: AdminSettingsDTO = {
+  macroBreakEnabled: true,
+  macroLessonsThreshold: 3,
+  macroBreakDurationMs: 10800000,
+  microBlockDurationMs: 900000,
+  microBreakDurationMs: 180000,
+};
+
+const LESSON_PACING_FIXTURE: LessonPacingStatusDTO = {
+  lessonsSinceMacroBreak: 2,
+  macroLessonsThreshold: 3,
+  macroBreakEnabled: true,
+  macroBreakDurationMs: 10800000,
+  macroBreakRequired: false,
+  macroBreakRemainingMs: 0,
+  nextAvailableAt: null,
+};
+
 const PROGRESS_CARD_FIXTURE: SubmitProgressCardResponseDTO = {
   advanced: true,
   progressCard: {
@@ -134,6 +162,12 @@ interface TestCalls {
   dashboardHabits: Mock;
   dashboardMastery: Mock;
   dashboardProximity: Mock;
+  requestPasswordReset: Mock;
+  confirmPasswordReset: Mock;
+  adminResetUserPassword: Mock;
+  getAdminSettings: Mock;
+  updateAdminSettings: Mock;
+  lessonPacing: Mock;
 }
 
 async function buildNestApp(
@@ -278,20 +312,56 @@ async function buildNestApp(
     (): Promise<GetDashboardProximityResponseDTO> =>
       Promise.resolve({ keys: [] }),
   );
+  const requestPasswordReset = vi.fn((): Promise<{ message: string }> =>
+    Promise.resolve({
+      message: "Se o e-mail existir, enviaremos o link de recuperação",
+    }),
+  );
+  const confirmPasswordReset = vi.fn((): Promise<{ message: string }> =>
+    Promise.resolve({ message: "Senha redefinida com sucesso" }),
+  );
+  const adminResetUserPassword = vi.fn((): Promise<{ message: string }> =>
+    Promise.resolve({ message: "Senha do usuário redefinida" }),
+  );
+  const getAdminSettings = vi.fn((): Promise<AdminSettingsDTO> =>
+    Promise.resolve(ADMIN_SETTINGS_FIXTURE),
+  );
+  const updateAdminSettings = vi.fn((): Promise<AdminSettingsDTO> =>
+    Promise.resolve(ADMIN_SETTINGS_FIXTURE),
+  );
+  const lessonPacing = vi.fn((): Promise<LessonPacingStatusDTO> =>
+    Promise.resolve(LESSON_PACING_FIXTURE),
+  );
   const tokenService = {
-    signAccessToken: vi.fn(() => "access-token"),
+    signAccessToken: vi.fn(
+      (userId: string, _role: "user" | "admin" = "user") =>
+        `access-token-${userId}`,
+    ),
     signRefreshToken: vi.fn(() => "refresh-token"),
     verifyAccessToken: vi.fn((token: string) => {
       if (token === "expired") {
         throw AppError.unauthorized("TOKEN_EXPIRED", "Token expirado");
       }
-      return TEST_USER_ID;
+      // Token que faz o serviço de token lançar algo que não é `AppError` — é o
+      // que o `jsonwebtoken` faz com token corrompido. Serve para provar que o
+      // `AuthGuard` converte em 401 em vez de deixar escapar 500.
+      if (token === "boom") {
+        throw new Error("jwt malformed");
+      }
+      // Token de admin: as rotas /admin/* e /auth/admin/* só podem ser exercitadas
+      // por um JWT cujo papel é admin. O default é 'user', então sem este ramo o
+      // AdminGuard responderia 403 e o teste não provaria o caminho feliz.
+      if (token === "admin-token") {
+        return { userId: TEST_USER_ID, role: "admin" as const };
+      }
+      return { userId: TEST_USER_ID, role: "user" as const };
     }),
     verifyRefreshToken: vi.fn((): { userId: string; jti: string } => ({
       userId: TEST_USER_ID,
       jti: "jti-1",
     })),
     revokeRefreshToken: vi.fn(),
+    revokeAllRefreshTokensForUser: vi.fn(() => 0),
   };
 
   const deps: NestDependencyValues = {
@@ -320,6 +390,12 @@ async function buildNestApp(
     [TOKENS.GET_DASHBOARD_HABITS]: { execute: dashboardHabits },
     [TOKENS.GET_DASHBOARD_MASTERY]: { execute: dashboardMastery },
     [TOKENS.GET_DASHBOARD_PROXIMITY]: { execute: dashboardProximity },
+    [TOKENS.REQUEST_PASSWORD_RESET]: { execute: requestPasswordReset },
+    [TOKENS.CONFIRM_PASSWORD_RESET]: { execute: confirmPasswordReset },
+    [TOKENS.ADMIN_RESET_USER_PASSWORD]: { execute: adminResetUserPassword },
+    [TOKENS.GET_ADMIN_SETTINGS]: { execute: getAdminSettings },
+    [TOKENS.UPDATE_ADMIN_SETTINGS]: { execute: updateAdminSettings },
+    [TOKENS.GET_LESSON_PACING_STATUS]: { execute: lessonPacing },
     ...overrides,
   };
 
@@ -358,6 +434,12 @@ async function buildNestApp(
       dashboardHabits,
       dashboardMastery,
       dashboardProximity,
+      requestPasswordReset,
+      confirmPasswordReset,
+      adminResetUserPassword,
+      getAdminSettings,
+      updateAdminSettings,
+      lessonPacing,
     },
   };
 }
@@ -672,6 +754,631 @@ describe("Nest - health check (TASK-082)", () => {
     expect((res.body as { timestamp?: unknown }).timestamp).toBeTypeOf(
       "string",
     );
+    await app.close();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Paridade de rotas entre os dois composition roots.
+//
+// Estes testes existem porque o achado que os motivou é de silêncio: os use
+// cases existiam, eram testados no e2e e estavam registrados no
+// `composition-root.ts` (Express, stack morta) — mas NÃO em `main-nest.ts`, que
+// é o que `npm run dev` executa. O resultado era 404 em produção com a suíte
+// verde. Um teste de porta não pega isso; o que pega é exercitar a rota HTTP no
+// app Nest e exigir o código de negócio esperado.
+// ---------------------------------------------------------------------------
+
+describe("RN16/RN17 - recuperação de senha existe no app Nest", () => {
+  it("POST /auth/forgot-password com e-mail válido → 200", async () => {
+    const { app, calls } = await buildNestApp();
+    const res = await request(httpServer(app))
+      .post("/auth/forgot-password")
+      .send({ email: "ana@email.com" });
+
+    expect(res.status).toBe(200);
+    expect(calls.requestPasswordReset).toHaveBeenCalledOnce();
+    expect(calls.requestPasswordReset).toHaveBeenCalledWith({
+      email: "ana@email.com",
+    });
+    await app.close();
+  });
+
+  it("POST /auth/forgot-password é pública (sem token, 200)", async () => {
+    const { app } = await buildNestApp();
+    const res = await request(httpServer(app))
+      .post("/auth/forgot-password")
+      .send({ email: "ana@email.com" });
+
+    // Rota pública por design: quem pede recuperação pode estar sem sessão.
+    expect(res.status).toBe(200);
+    await app.close();
+  });
+
+  it("POST /auth/forgot-password com e-mail inválido → 422", async () => {
+    const { app } = await buildNestApp();
+    const res = await request(httpServer(app))
+      .post("/auth/forgot-password")
+      .send({ email: "nao-e-email" });
+
+    expect(res.status).toBe(422);
+    expect(asErrorBody(res.body).error.code).toBe("VALIDATION_ERROR");
+    await app.close();
+  });
+
+  it("POST /auth/reset-password com token e nova senha → 200", async () => {
+    const { app, calls } = await buildNestApp();
+    const res = await request(httpServer(app))
+      .post("/auth/reset-password")
+      .send({ token: "abc123", newPassword: "nova-senha-123" });
+
+    expect(res.status).toBe(200);
+    expect(calls.confirmPasswordReset).toHaveBeenCalledWith({
+      token: "abc123",
+      newPassword: "nova-senha-123",
+    });
+    await app.close();
+  });
+
+  it("POST /auth/reset-password com senha curta → 422", async () => {
+    const { app } = await buildNestApp();
+    const res = await request(httpServer(app))
+      .post("/auth/reset-password")
+      .send({ token: "abc123", newPassword: "curta" });
+
+    expect(res.status).toBe(422);
+    await app.close();
+  });
+
+  it("POST /auth/reset-password repete TOKEN_ALREADY_USED, não 500", async () => {
+    const { app } = await buildNestApp({
+      [TOKENS.CONFIRM_PASSWORD_RESET]: {
+        execute: () =>
+          Promise.reject(
+            AppError.conflict(
+              "TOKEN_ALREADY_USED",
+              "Token de recuperação já utilizado",
+            ),
+          ),
+      },
+    });
+    const res = await request(httpServer(app))
+      .post("/auth/reset-password")
+      .send({ token: "abc123", newPassword: "nova-senha-123" });
+
+    expect(res.status).toBe(409);
+    expect(asErrorBody(res.body).error.code).toBe("TOKEN_ALREADY_USED");
+    await app.close();
+  });
+});
+
+describe("RN16/RN17 - POST /auth/admin/reset-user-password exige admin no app Nest", () => {
+  it("anônimo → 401, e o caso de uso NÃO é chamado", async () => {
+    const { app, calls } = await buildNestApp();
+    const res = await request(httpServer(app))
+      .post("/auth/admin/reset-user-password")
+      .send({ userId: TEST_USER_ID, newPassword: "nova-senha-123" });
+
+    // A regressão que este bloco fecha: a rota mora no mount público `/auth`.
+    // Sem AuthGuard, qualquer cliente anônimo com um userId redefinia a senha de
+    // qualquer conta.
+    expect(res.status).toBe(401);
+    expect(calls.adminResetUserPassword).not.toHaveBeenCalled();
+    await app.close();
+  });
+
+  it("usuário comum → 403 FORBIDDEN, e o caso de uso NÃO é chamado", async () => {
+    const { app, calls } = await buildNestApp();
+    const res = await request(httpServer(app))
+      .post("/auth/admin/reset-user-password")
+      .set("Authorization", "Bearer valid")
+      .send({ userId: TEST_USER_ID, newPassword: "nova-senha-123" });
+
+    expect(res.status).toBe(403);
+    expect(asErrorBody(res.body).error.code).toBe("FORBIDDEN");
+    expect(calls.adminResetUserPassword).not.toHaveBeenCalled();
+    await app.close();
+  });
+
+  it("admin → 200 e o caso de uso é chamado", async () => {
+    const { app, calls } = await buildNestApp();
+    const res = await request(httpServer(app))
+      .post("/auth/admin/reset-user-password")
+      .set("Authorization", "Bearer admin-token")
+      .send({ userId: TEST_USER_ID, newPassword: "nova-senha-123" });
+
+    expect(res.status).toBe(200);
+    expect(calls.adminResetUserPassword).toHaveBeenCalledWith({
+      userId: TEST_USER_ID,
+      newPassword: "nova-senha-123",
+    });
+    await app.close();
+  });
+
+  it("admin com userId que não é UUID → 422 antes de chegar ao caso de uso", async () => {
+    const { app, calls } = await buildNestApp();
+    const res = await request(httpServer(app))
+      .post("/auth/admin/reset-user-password")
+      .set("Authorization", "Bearer admin-token")
+      .send({ userId: "nao-e-uuid", newPassword: "nova-senha-123" });
+
+    expect(res.status).toBe(422);
+    expect(calls.adminResetUserPassword).not.toHaveBeenCalled();
+    await app.close();
+  });
+});
+
+describe("RN34 - /admin/settings existe no app Nest e é restrito a admin", () => {
+  it("anônimo em GET → 401", async () => {
+    const { app, calls } = await buildNestApp();
+    const res = await request(httpServer(app)).get("/admin/settings");
+
+    expect(res.status).toBe(401);
+    expect(calls.getAdminSettings).not.toHaveBeenCalled();
+    await app.close();
+  });
+
+  it("usuário comum em GET → 403 FORBIDDEN", async () => {
+    const { app, calls } = await buildNestApp();
+    const res = await request(httpServer(app))
+      .get("/admin/settings")
+      .set("Authorization", "Bearer valid");
+
+    expect(res.status).toBe(403);
+    expect(calls.getAdminSettings).not.toHaveBeenCalled();
+    await app.close();
+  });
+
+  it("admin em GET → 200 com as 5 chaves de RN34", async () => {
+    const { app, calls } = await buildNestApp();
+    const res = await request(httpServer(app))
+      .get("/admin/settings")
+      .set("Authorization", "Bearer admin-token");
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual(ADMIN_SETTINGS_FIXTURE);
+    expect(calls.getAdminSettings).toHaveBeenCalledOnce();
+    await app.close();
+  });
+
+  it("admin em PATCH → 200 e repassa só os campos enviados", async () => {
+    const { app, calls } = await buildNestApp();
+    const res = await request(httpServer(app))
+      .patch("/admin/settings")
+      .set("Authorization", "Bearer admin-token")
+      .send({ macroBreakEnabled: false });
+
+    expect(res.status).toBe(200);
+    expect(calls.updateAdminSettings).toHaveBeenCalledWith({
+      macroBreakEnabled: false,
+    });
+    await app.close();
+  });
+
+  it("PATCH com corpo vazio → 422 (pelo menos um campo)", async () => {
+    const { app, calls } = await buildNestApp();
+    const res = await request(httpServer(app))
+      .patch("/admin/settings")
+      .set("Authorization", "Bearer admin-token")
+      .send({});
+
+    expect(res.status).toBe(422);
+    expect(calls.updateAdminSettings).not.toHaveBeenCalled();
+    await app.close();
+  });
+
+  it("PATCH com limite negativo → 422", async () => {
+    const { app, calls } = await buildNestApp();
+    const res = await request(httpServer(app))
+      .patch("/admin/settings")
+      .set("Authorization", "Bearer admin-token")
+      .send({ macroLessonsThreshold: -1 });
+
+    expect(res.status).toBe(422);
+    expect(calls.updateAdminSettings).not.toHaveBeenCalled();
+    await app.close();
+  });
+});
+
+describe("RN34 - GET /me/lesson-pacing existe no app Nest", () => {
+  it("sem token → 401", async () => {
+    const { app, calls } = await buildNestApp();
+    const res = await request(httpServer(app)).get("/me/lesson-pacing");
+
+    expect(res.status).toBe(401);
+    expect(calls.lessonPacing).not.toHaveBeenCalled();
+    await app.close();
+  });
+
+  it("com token → 200 e deriva o userId do JWT", async () => {
+    const { app, calls } = await buildNestApp();
+    const res = await request(httpServer(app))
+      .get("/me/lesson-pacing")
+      .set("Authorization", "Bearer valid");
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual(LESSON_PACING_FIXTURE);
+    expect(calls.lessonPacing).toHaveBeenCalledWith(TEST_USER_ID);
+    await app.close();
+  });
+
+  it("token expirado → 401 UNAUTHORIZED", async () => {
+    const { app, calls } = await buildNestApp();
+    const res = await request(httpServer(app))
+      .get("/me/lesson-pacing")
+      .set("Authorization", "Bearer expired");
+
+    expect(res.status).toBe(401);
+    expect(calls.lessonPacing).not.toHaveBeenCalled();
+    await app.close();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Cobertura migrada da pilha Express removida (ADR-024).
+//
+// Estas rotas e estas bordas **não** tinham teste neste arquivo: os mocks
+// `practiceStatus`, `nextPedagogicalLesson`, `submitCard` e `ergonomic` estavam
+// registrados em `deps` desde o início, e nenhuma requisição os alcançava. A
+// cobertura vinha do `presentation/app.test.ts` Express, que foi removido — e o
+// e2e, agora sobre o Nest, também não passa por elas.
+//
+// Um mock registrado e nunca exercitado é o mesmo tipo de mentira que a
+// interface sem consumidor: parece cobertura no diff e não cobre nada.
+// ---------------------------------------------------------------------------
+
+const PROGRESS_CARD_BODY = {
+  lessonId: LESSON_ID,
+  insecureKeys: ["a"],
+  discomfortReported: false,
+  nextSessionNote: "continuar",
+  currentBackspaceCount: 0,
+};
+
+describe("Nest - /me/pedagogical-lesson, /me/progress-card e /me/ergonomic-check", () => {
+  it("GET /me/pedagogical-lesson → 200 e confirma o boolean, não a string", async () => {
+    const { app, calls } = await buildNestApp();
+    const res = await request(httpServer(app))
+      .get("/me/pedagogical-lesson")
+      .query({ confirmsNoLookingAtKeyboard: "true" })
+      .set("Authorization", "Bearer valid");
+
+    expect(res.status).toBe(200);
+    // A query chega como string; o caso de uso recebe boolean. Passar a string
+    // adiante faria "false" ser truthy e a lição errada ser servida.
+    expect(calls.nextPedagogicalLesson).toHaveBeenCalledWith({
+      userId: TEST_USER_ID,
+      confirmsNoLookingAtKeyboard: true,
+    });
+    await app.close();
+  });
+
+  it("GET /me/pedagogical-lesson com confirmsNoLookingAtKeyboard=false → false, não string", async () => {
+    const { app, calls } = await buildNestApp();
+    const res = await request(httpServer(app))
+      .get("/me/pedagogical-lesson")
+      .query({ confirmsNoLookingAtKeyboard: "false" })
+      .set("Authorization", "Bearer valid");
+
+    expect(res.status).toBe(200);
+    expect(calls.nextPedagogicalLesson).toHaveBeenCalledWith({
+      userId: TEST_USER_ID,
+      confirmsNoLookingAtKeyboard: false,
+    });
+    await app.close();
+  });
+
+  it("GET /me/pedagogical-lesson sem o parâmetro → 422", async () => {
+    const { app, calls } = await buildNestApp();
+    const res = await request(httpServer(app))
+      .get("/me/pedagogical-lesson")
+      .set("Authorization", "Bearer valid");
+
+    expect(res.status).toBe(422);
+    expect(asErrorBody(res.body).error.code).toBe("VALIDATION_ERROR");
+    expect(calls.nextPedagogicalLesson).not.toHaveBeenCalled();
+    await app.close();
+  });
+
+  it("POST /me/progress-card → 201 e deriva o userId do JWT", async () => {
+    const { app, calls } = await buildNestApp();
+    const res = await request(httpServer(app))
+      .post("/me/progress-card")
+      .set("Authorization", "Bearer valid")
+      .send(PROGRESS_CARD_BODY);
+
+    expect(res.status).toBe(201);
+    expect(calls.submitCard).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: TEST_USER_ID, lessonId: LESSON_ID }),
+    );
+    await app.close();
+  });
+
+  it("POST /me/progress-card sem lessonId → 422 e o caso de uso não roda", async () => {
+    const { app, calls } = await buildNestApp();
+    const res = await request(httpServer(app))
+      .post("/me/progress-card")
+      .set("Authorization", "Bearer valid")
+      .send({ ...PROGRESS_CARD_BODY, lessonId: undefined });
+
+    expect(res.status).toBe(422);
+    expect(asErrorBody(res.body).error.code).toBe("VALIDATION_ERROR");
+    expect(calls.submitCard).not.toHaveBeenCalled();
+    await app.close();
+  });
+
+  it("POST /me/progress-card com userId no corpo → 422 (userId sempre do token)", async () => {
+    const { app, calls } = await buildNestApp();
+    const res = await request(httpServer(app))
+      .post("/me/progress-card")
+      .set("Authorization", "Bearer valid")
+      .send({ ...PROGRESS_CARD_BODY, userId: "outro-usuario" });
+
+    // O schema é `.strict()`: o corpo não pode trazer `userId`. Sem isso, um
+    // cliente poderia主張 ser outro usuário — o corpo viraria segunda fonte de
+    // verdade, que é o que o PRD §13.1 proíbe.
+    expect(res.status).toBe(422);
+    expect(asErrorBody(res.body).error.code).toBe("VALIDATION_ERROR");
+    expect(calls.submitCard).not.toHaveBeenCalled();
+    await app.close();
+  });
+
+  it("POST /me/progress-card com currentBackspaceCount negativo → 422", async () => {
+    const { app, calls } = await buildNestApp();
+    const res = await request(httpServer(app))
+      .post("/me/progress-card")
+      .set("Authorization", "Bearer valid")
+      .send({ ...PROGRESS_CARD_BODY, currentBackspaceCount: -1 });
+
+    expect(res.status).toBe(422);
+    expect(asErrorBody(res.body).error.code).toBe("VALIDATION_ERROR");
+    expect(calls.submitCard).not.toHaveBeenCalled();
+    await app.close();
+  });
+
+  it("POST /me/ergonomic-check ok → 201", async () => {
+    const { app, calls } = await buildNestApp();
+    const res = await request(httpServer(app))
+      .post("/me/ergonomic-check")
+      .set("Authorization", "Bearer valid")
+      .send({
+        seatHeightOk: true,
+        lumbarSupportOk: true,
+        monitorAtEyeLevel: true,
+        wristSupportOk: true,
+        discomfortReported: false,
+      });
+
+    expect(res.status).toBe(201);
+    expect(res.body).toEqual(ERGONOMIC_FIXTURE);
+    expect(calls.ergonomic).toHaveBeenCalledWith({
+      seatHeightOk: true,
+      lumbarSupportOk: true,
+      monitorAtEyeLevel: true,
+      wristSupportOk: true,
+      discomfortReported: false,
+    });
+    await app.close();
+  });
+
+  it("POST /me/ergonomic-check com checks faltando → 422", async () => {
+    const { app, calls } = await buildNestApp();
+    const res = await request(httpServer(app))
+      .post("/me/ergonomic-check")
+      .set("Authorization", "Bearer valid")
+      .send({ seatHeightOk: true, discomfortReported: false });
+
+    expect(res.status).toBe(422);
+    expect(asErrorBody(res.body).error.code).toBe("VALIDATION_ERROR");
+    expect(calls.ergonomic).not.toHaveBeenCalled();
+    await app.close();
+  });
+
+  it("GET /me/practice-status → 200 e deriva o userId do JWT", async () => {
+    const { app, calls } = await buildNestApp();
+    const res = await request(httpServer(app))
+      .get("/me/practice-status")
+      .set("Authorization", "Bearer valid");
+
+    expect(res.status).toBe(200);
+    expect(calls.practiceStatus).toHaveBeenCalledWith(TEST_USER_ID);
+    await app.close();
+  });
+
+  it("GET /me/practice-status sem token → 401 e o caso de uso não roda", async () => {
+    const { app, calls } = await buildNestApp();
+    const res = await request(httpServer(app)).get("/me/practice-status");
+
+    expect(res.status).toBe(401);
+    expect(calls.practiceStatus).not.toHaveBeenCalled();
+    await app.close();
+  });
+
+  it("as rotas pedagógicas exigem token → 401 e nenhum caso de uso roda", async () => {
+    const { app, calls } = await buildNestApp();
+
+    const results = await Promise.all([
+      request(httpServer(app)).get("/me/pedagogical-lesson"),
+      request(httpServer(app))
+        .post("/me/progress-card")
+        .send(PROGRESS_CARD_BODY),
+      request(httpServer(app)).post("/me/ergonomic-check").send({}),
+    ]);
+
+    for (const res of results) {
+      expect(res.status).toBe(401);
+    }
+    expect(calls.nextPedagogicalLesson).not.toHaveBeenCalled();
+    expect(calls.submitCard).not.toHaveBeenCalled();
+    expect(calls.ergonomic).not.toHaveBeenCalled();
+    await app.close();
+  });
+});
+
+describe("Nest - bordas do AuthGuard que a pilha Express cobria", () => {
+  it("Authorization sem o prefixo Bearer → 401", async () => {
+    const { app, calls } = await buildNestApp();
+    // Um token **mais longo que 7 caracteres**, de proposito. O guard faz
+    // `slice(7)` para descartar o prefixo, e um token curto (< 7) voltaria "" e
+    // cairia na checagem de vazio — o 401 viria por acidente, nao porque o
+    // prefixo foi exigido. Com um JWT de tamanho real, `slice(7)` deixa resto
+    // nao vazio, e o header sem `Bearer` passaria a autenticar se a checagem de
+    // prefixo nao existisse.
+    const res = await request(httpServer(app))
+      .get("/users/me")
+      .set(
+        "Authorization",
+        "eyJhbGciOiJIUzI1NiJ9.eyJ1c2VySWQiOiIxIn0.assinatura",
+      );
+
+    expect(res.status).toBe(401);
+    expect(asErrorBody(res.body).error.code).toBe("UNAUTHORIZED");
+    expect(calls.getUser).not.toHaveBeenCalled();
+    await app.close();
+  });
+
+  it("Authorization com 'Bearer ' vazio → 401", async () => {
+    const { app, calls } = await buildNestApp();
+    const res = await request(httpServer(app))
+      .get("/users/me")
+      .set("Authorization", "Bearer ");
+
+    expect(res.status).toBe(401);
+    expect(asErrorBody(res.body).error.code).toBe("UNAUTHORIZED");
+    expect(calls.getUser).not.toHaveBeenCalled();
+    await app.close();
+  });
+
+  it("token que o serviço rejeita → 401 e o caso de uso não roda", async () => {
+    const { app, calls } = await buildNestApp();
+    const res = await request(httpServer(app))
+      .get("/users/me")
+      .set("Authorization", "Bearer boom");
+
+    // O stub de `verifyAccessToken` lança um `Error` comum no token "boom" —
+    // é o que o `jsonwebtoken` faz com um token corrompido. Um erro que não é
+    // AppError tem de virar 401 genérico: escapar como 500 entregaria ao
+    // cliente que o token é problema dele, e não credencial inválida.
+    expect(res.status).toBe(401);
+    expect(asErrorBody(res.body).error.code).toBe("UNAUTHORIZED");
+    expect(calls.getUser).not.toHaveBeenCalled();
+    await app.close();
+  });
+});
+
+describe("Nest - mapeamento de erro do AppExceptionFilter (RNF02 + catálogo)", () => {
+  it("DomainError do domínio → 403 com a mensagem do domínio, não a do catálogo", async () => {
+    const { app } = await buildNestApp({
+      [TOKENS.PAUSE_SESSION]: {
+        execute: (): Promise<SessionCommandResponseDTO> =>
+          Promise.reject(
+            new SessionNotOwnedError("Sessão não pertence ao usuário"),
+          ),
+      },
+    });
+    const res = await request(httpServer(app))
+      .post(`/sessions/${SESSION_ID}/pause`)
+      .set("Authorization", "Bearer valid");
+
+    expect(res.status).toBe(403);
+    // A mensagem vem do DomainError. O catálogo é o fallback de quem chega sem
+    // mensagem própria — usar o catálogo aqui descartaria o texto do domínio.
+    expect(asErrorBody(res.body).error).toMatchObject({
+      code: "SESSION_NOT_OWNED",
+      message: "Sessão não pertence ao usuário",
+    });
+    await app.close();
+  });
+
+  it("RN17 - PROFILE_NOT_OWNED → 403", async () => {
+    const { app } = await buildNestApp({
+      [TOKENS.GET_USER]: {
+        execute: (): Promise<GetUserResponseDTO> =>
+          Promise.reject(
+            new ProfileNotOwnedError("Perfil não pertence ao usuário"),
+          ),
+      },
+    });
+    const res = await request(httpServer(app))
+      .get("/users/me")
+      .set("Authorization", "Bearer valid");
+
+    expect(res.status).toBe(403);
+    expect(asErrorBody(res.body).error.code).toBe("PROFILE_NOT_OWNED");
+    await app.close();
+  });
+
+  it("USER_ALREADY_EXISTS → 409", async () => {
+    const { app } = await buildNestApp({
+      [TOKENS.REGISTER_USER]: {
+        execute: (): Promise<{ userId: string }> =>
+          Promise.reject(new UserAlreadyExistsError("E-mail já cadastrado")),
+      },
+    });
+    const res = await request(httpServer(app))
+      .post("/auth/register")
+      .send({ name: "Ana", email: "ana@email.com", password: "senha-segura" });
+
+    expect(res.status).toBe(409);
+    expect(asErrorBody(res.body).error.code).toBe("USER_ALREADY_EXISTS");
+    await app.close();
+  });
+
+  it("RN28 - DISCOMFORT_SIGNALED → 422", async () => {
+    const { app } = await buildNestApp({
+      [TOKENS.CHECK_ERGONOMIC_SAFETY]: {
+        execute: (): Promise<CheckErgonomicSafetyResponseDTO> =>
+          Promise.reject(new DiscomfortSignaledError("Desconforto relatado")),
+      },
+    });
+    const res = await request(httpServer(app))
+      .post("/me/ergonomic-check")
+      .set("Authorization", "Bearer valid")
+      .send({
+        seatHeightOk: true,
+        lumbarSupportOk: true,
+        monitorAtEyeLevel: true,
+        wristSupportOk: true,
+        discomfortReported: true,
+        discomfortDetail: "pulsos",
+      });
+
+    // 422 e não 400: o corpo está válido, a regra de negócio é que recusa.
+    expect(res.status).toBe(422);
+    expect(asErrorBody(res.body).error).toMatchObject({
+      code: "DISCOMFORT_SIGNALED",
+      message: "Desconforto relatado",
+    });
+    await app.close();
+  });
+
+  it("erro inesperado → 500 INTERNAL sem vazar o detalhe interno", async () => {
+    const { app } = await buildNestApp({
+      [TOKENS.GET_USER]: {
+        execute: (): Promise<GetUserResponseDTO> =>
+          Promise.reject(new Error("postgres://admin:senha@host:5432/prod")),
+      },
+    });
+    const res = await request(httpServer(app))
+      .get("/users/me")
+      .set("Authorization", "Bearer valid");
+
+    expect(res.status).toBe(500);
+    const body = asErrorBody(res.body);
+    expect(body.error.code).toBe("INTERNAL");
+    // A exceção pode carregar credencial de infraestrutura; a resposta HTTP não
+    // pode repetir nada dela. O detalhe vai para o log do servidor, que é quem
+    // pode ver a connection string.
+    expect(JSON.stringify(body)).not.toContain("postgres://");
+    expect(JSON.stringify(body)).not.toContain("senha");
+    await app.close();
+  });
+
+  it("rota desconhecida → 404", async () => {
+    const { app } = await buildNestApp();
+    const res = await request(httpServer(app)).get("/nao-existe");
+
+    expect(res.status).toBe(404);
     await app.close();
   });
 });

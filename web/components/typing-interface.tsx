@@ -387,7 +387,10 @@ function CompletedPanel({
   onAdvanceLesson,
 }: CompletedPanelProps): ReactNode {
   const m = result.metrics;
-  const isInsufficient = m.activeDurationMs < 3000 || m.charactersTyped < 5;
+  // RN22 - a decisão vem do backend. A tela não reimplementa a regra: com
+  // literais aqui, mudar `adaptiveParams` mudaria o que o banco guarda sem
+  // mudar o que a tela mostra (e nenhum teste do repositório acusaria).
+  const isInsufficient = m.insufficientData;
   const [verdict, setVerdict] = useState<CompletionVerdict>({
     status: "checking",
   });

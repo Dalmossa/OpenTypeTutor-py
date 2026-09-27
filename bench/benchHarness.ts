@@ -1,6 +1,7 @@
 import os from "os";
 import crypto from "crypto";
 import autocannon from "autocannon";
+import type { Server } from "node:http";
 import type { DataSource } from "typeorm";
 import { SessionId } from "../src/domain/value-objects/SessionId.js";
 import { Layout } from "../src/domain/value-objects/Layout.js";
@@ -8,47 +9,7 @@ import { Lesson } from "../src/domain/entities/Lesson.js";
 import { SessionMetrics } from "../src/domain/entities/SessionMetrics.js";
 import type { KeystrokeEventProps } from "../src/domain/entities/KeystrokeEvent.js";
 import { TypeOrmLessonRepository } from "../src/infrastructure/repositories/TypeOrmLessonRepository.js";
-import { TypeOrmUserRepository } from "../src/infrastructure/repositories/TypeOrmUserRepository.js";
-import { TypeOrmUserProfileRepository } from "../src/infrastructure/repositories/TypeOrmUserProfileRepository.js";
-import { TypeOrmTypingSessionRepository } from "../src/infrastructure/repositories/TypeOrmTypingSessionRepository.js";
-import { TypeOrmKeyPerformanceRepository } from "../src/infrastructure/repositories/TypeOrmKeyPerformanceRepository.js";
-import { TypeOrmProgressRepository } from "../src/infrastructure/repositories/TypeOrmProgressRepository.js";
-import { TypeOrmProgressCardRepository } from "../src/infrastructure/repositories/TypeOrmProgressCardRepository.js";
-import { TypeOrmPracticePacingRepository } from "../src/infrastructure/repositories/TypeOrmPracticePacingRepository.js";
-import { TypeOrmDailyMetricsAggregateRepository } from "../src/infrastructure/repositories/TypeOrmDailyMetricsAggregateRepository.js";
-import { TypeOrmKeyMasteryTransitionRepository } from "../src/infrastructure/repositories/TypeOrmKeyMasteryTransitionRepository.js";
-import { InMemoryRateLimiter } from "../src/infrastructure/rateLimit/InMemoryRateLimiter.js";
-import { createRateLimitMiddleware } from "../src/presentation/middlewares/rateLimitMiddleware.js";
-import { rateLimitParams } from "../src/infrastructure/auth/rateLimitParams.js";
-import { InMemoryNGramRepository } from "../src/infrastructure/repositories/InMemoryNGramRepository.js";
-import { BcryptPasswordHasher } from "../src/infrastructure/auth/BcryptPasswordHasher.js";
-import { AuthPasswordValidator } from "../src/infrastructure/auth/AuthPasswordValidator.js";
-import { JwtTokenService } from "../src/infrastructure/auth/JwtTokenService.js";
-import { createAuthMiddleware } from "../src/presentation/middlewares/authMiddleware.js";
-import { createApp } from "../src/presentation/app.js";
-import { RegisterUser } from "../src/application/use-cases/RegisterUser.js";
-import { Login } from "../src/application/use-cases/Login.js";
-import { RefreshToken } from "../src/application/use-cases/RefreshToken.js";
-import { GetUser } from "../src/application/use-cases/GetUser.js";
-import { UpdateUserLayout } from "../src/application/use-cases/UpdateUserLayout.js";
-import { ListLessons } from "../src/application/use-cases/ListLessons.js";
-import { GetLesson } from "../src/application/use-cases/GetLesson.js";
-import { StartTypingSession } from "../src/application/use-cases/StartTypingSession.js";
-import { PauseTypingSession } from "../src/application/use-cases/PauseTypingSession.js";
-import { ResumeTypingSession } from "../src/application/use-cases/ResumeTypingSession.js";
-import { AbandonTypingSession } from "../src/application/use-cases/AbandonTypingSession.js";
-import { SubmitTypingSession } from "../src/application/use-cases/SubmitTypingSession.js";
-import { GetReinforcementLesson } from "../src/application/use-cases/GetReinforcementLesson.js";
-import { GetUserProgress } from "../src/application/use-cases/GetUserProgress.js";
-import { GetUserKeyPerformance } from "../src/application/use-cases/GetUserKeyPerformance.js";
-import { GetNextPedagogicalLesson } from "../src/application/use-cases/GetNextPedagogicalLesson.js";
-import { SubmitProgressCard } from "../src/application/use-cases/SubmitProgressCard.js";
-import { GetPracticeStatus } from "../src/application/use-cases/GetPracticeStatus.js";
-import { CheckErgonomicSafety } from "../src/application/use-cases/CheckErgonomicSafety.js";
-import { GetDashboardHabits } from "../src/application/use-cases/GetDashboardHabits.js";
-import { GetDashboardMastery } from "../src/application/use-cases/GetDashboardMastery.js";
-import { GetDashboardProximity } from "../src/application/use-cases/GetDashboardProximity.js";
-import { GetLessonPerformance } from "../src/application/use-cases/GetLessonPerformance.js";
+import { createNestApp } from "../src/nestRuntime.js";
 import {
   TypingSessionEntity,
   type TypingSessionRow,
@@ -120,111 +81,49 @@ export async function jsonResponse(
   return { status: res.status, body };
 }
 
-export function buildApp(dataSource: DataSource) {
-  const userRepository = new TypeOrmUserRepository(dataSource);
-  const userProfileRepository = new TypeOrmUserProfileRepository(dataSource);
-  const lessonRepository = new TypeOrmLessonRepository(dataSource);
-  const sessionRepository = new TypeOrmTypingSessionRepository(dataSource);
-  const keyPerformanceRepository = new TypeOrmKeyPerformanceRepository(
-    dataSource,
-  );
-  const progressRepository = new TypeOrmProgressRepository(dataSource);
-  const progressCardRepository = new TypeOrmProgressCardRepository(dataSource);
-  const pacingRepository = new TypeOrmPracticePacingRepository(dataSource);
-  const dailyAggregateRepository = new TypeOrmDailyMetricsAggregateRepository(
-    dataSource,
-  );
-  const masteryTransitionRepository = new TypeOrmKeyMasteryTransitionRepository(
-    dataSource,
-  );
-  const passwordHasher = new BcryptPasswordHasher();
-  const passwordValidator = new AuthPasswordValidator();
-  const tokenService = new JwtTokenService();
-  const nGramRepository = new InMemoryNGramRepository();
+/**
+ * Sobe o app Nest de benchmarking e devolve a URL base.
+ *
+ * Antes de ADR-024 o bench tinha a **quarta** cópia do grafo de dependências, e
+ * ela apodreceu: `new RefreshToken(tokenService)` quando o caso de uso já
+ * exigia o `userRepository`, e faltavam os 6 use cases de recuperação de senha,
+ * admin settings e pacing. `npm run bench` quebrava em runtime — e ninguém
+ * percebia, porque o `include` do `tsconfig.json` é só `src` e o script de
+ * lint é `eslint src`. Ou seja, o diretório que existe para medir desempenho
+ * não era nem typecheckado.
+ *
+ * Montar pelo `createNestApp` elimina a possibilidade: o bench agora mede o app
+ * que roda em produção, não um rascunho dele.
+ */
+export interface BenchApp {
+  readonly baseUrl: string;
+  stop(): Promise<void>;
+}
 
-  const rateLimiter = new InMemoryRateLimiter();
-  const loginRateLimiter = createRateLimitMiddleware(rateLimiter, {
-    keyPrefix: "login",
-    maxAttempts: rateLimitParams.LOGIN_MAX_ATTEMPTS,
-    windowMs: rateLimitParams.LOGIN_WINDOW_MS,
-  });
-  const refreshRateLimiter = createRateLimitMiddleware(rateLimiter, {
-    keyPrefix: "refresh",
-    maxAttempts: rateLimitParams.REFRESH_MAX_ATTEMPTS,
-    windowMs: rateLimitParams.REFRESH_WINDOW_MS,
-  });
+export async function startBenchApp(
+  dataSource: DataSource,
+  port = 0,
+): Promise<BenchApp> {
+  const app = await createNestApp(dataSource);
+  await app.listen(port);
 
-  const app = createApp({
-    authMiddleware: createAuthMiddleware(tokenService),
-    loginRateLimiter,
-    refreshRateLimiter,
-    registerUser: new RegisterUser(
-      userRepository,
-      passwordHasher,
-      passwordValidator,
-    ),
-    login: new Login(userRepository, passwordHasher, tokenService),
-    refreshToken: new RefreshToken(tokenService),
-    getUser: new GetUser(userRepository, userProfileRepository),
-    updateUserLayout: new UpdateUserLayout(userProfileRepository),
-    listLessons: new ListLessons(lessonRepository, userProfileRepository),
-    getLesson: new GetLesson(lessonRepository),
-    startSession: new StartTypingSession(
-      sessionRepository,
-      lessonRepository,
-      userProfileRepository,
-      pacingRepository,
-    ),
-    pauseSession: new PauseTypingSession(sessionRepository),
-    resumeSession: new ResumeTypingSession(sessionRepository),
-    abandonSession: new AbandonTypingSession(sessionRepository),
-    submitSession: new SubmitTypingSession(
-      sessionRepository,
-      keyPerformanceRepository,
-      progressRepository,
-      lessonRepository,
-      pacingRepository,
-      dailyAggregateRepository,
-      userProfileRepository,
-      masteryTransitionRepository,
-    ),
-    getReinforcementLesson: new GetReinforcementLesson(
-      userProfileRepository,
-      keyPerformanceRepository,
-      nGramRepository,
-    ),
-    getUserProgress: new GetUserProgress(progressRepository, lessonRepository),
-    getUserKeyPerformance: new GetUserKeyPerformance(
-      userProfileRepository,
-      keyPerformanceRepository,
-    ),
-    getNextPedagogicalLesson: new GetNextPedagogicalLesson(
-      progressCardRepository,
-      lessonRepository,
-    ),
-    submitProgressCard: new SubmitProgressCard(
-      progressCardRepository,
-      lessonRepository,
-    ),
-    checkErgonomicSafety: new CheckErgonomicSafety(),
-    getPracticeStatus: new GetPracticeStatus(pacingRepository),
-    getLessonPerformance: new GetLessonPerformance(sessionRepository),
-    getDashboardHabits: new GetDashboardHabits(
-      userProfileRepository,
-      dailyAggregateRepository,
-    ),
-    getDashboardMastery: new GetDashboardMastery(
-      userProfileRepository,
-      keyPerformanceRepository,
-      masteryTransitionRepository,
-    ),
-    getDashboardProximity: new GetDashboardProximity(
-      userProfileRepository,
-      keyPerformanceRepository,
-    ),
-  });
+  const address = app.getHttpServer().address();
+  const boundPort =
+    typeof address === "object" && address !== null ? address.port : port;
 
-  return app;
+  return {
+    baseUrl: `http://127.0.0.1:${String(boundPort)}`,
+    async stop(): Promise<void> {
+      const server = app.getHttpServer() as Server;
+      // autocannon deixa conexões pendentes; sem isto o `close` não resolve e o
+      // processo não sai.
+      server.closeAllConnections();
+      await new Promise<void>((resolve) => {
+        server.close(() => resolve());
+      });
+      await app.close();
+    },
+  };
 }
 
 export async function seedLesson(dataSource: DataSource): Promise<string> {
@@ -329,18 +228,7 @@ export async function runAutocannon(
       responseTimes.push(responseTime);
     },
   );
-  const result = (await instance) as unknown as {
-    requests: { average: number };
-    throughput: { average: number };
-    non2xx: number;
-    latency: {
-      p50: number;
-      p90: number;
-      p97_5: number;
-      p99: number;
-      average: number;
-    };
-  };
+  const result = await instance;
 
   const sortedLatencies = [...responseTimes].sort((a, b) => a - b);
   const p95Index = Math.min(
@@ -362,13 +250,27 @@ export async function runAutocannon(
   };
 }
 
+/**
+ * Imprime o relatório e devolve `true` só se a RNF foi de fato cumprida.
+ *
+ * **Latência de resposta de erro é mais rápida que a de sucesso.** Um 404
+ * servido em 2 ms tem p95 melhor que um 200 servido em 40 ms, então medir
+ * apenas `p95` premia a falha: basta com que o alvo responda erro rápido para
+ * o relatório sair "ATENDIDO". Foi exatamente o que aconteceu no `cena-a` com a
+ * UI Next no ar errado — 8.815 de 8.815 requisições em non-2xx, p95 de 24,6 ms,
+ * e a linha verde de RNF06. `non2xx > 0` reprova: um benchmark que mede o
+ * quanto o servidor erra rápido não mede desempenho, mede a taxa de erro com
+ * unidades trocadas.
+ */
 export function printReport(
   title: string,
   report: AutocannonReport,
   p95BudgetMs = 150,
   label = "RNF06",
 ): boolean {
-  const fulfilled = report.p95Ms <= p95BudgetMs;
+  const withinBudget = report.p95Ms <= p95BudgetMs;
+  const allSucceeded = report.non2xx === 0;
+  const fulfilled = withinBudget && allSucceeded;
   if (title !== "") {
     console.info(`${title}:`);
   }
@@ -383,8 +285,19 @@ export function printReport(
   console.info(`  latência p95 (calculado): ${report.p95Ms.toFixed(1)}ms`);
   console.info(`  latência p97.5: ${report.p97_5Ms.toFixed(1)}ms`);
   console.info(`  latência p99: ${report.p99Ms.toFixed(1)}ms`);
-  console.info(
-    `${label} (p95 ≤ ${p95BudgetMs}ms): ${fulfilled ? "ATENDIDO" : "NÃO ATENDIDO"}`,
-  );
+  if (!allSucceeded) {
+    const errorShare = (report.non2xx / report.totalRequests) * 100;
+    console.info(
+      `  ATENÇÃO: ${String(report.non2xx)} de ${String(report.totalRequests)} requisições ` +
+        `(${errorShare.toFixed(1)}%) falharam — a latência acima é a de um servidor ` +
+        `que está errando, não a de um que está atendendo.`,
+    );
+  }
+  const verdict = fulfilled
+    ? "ATENDIDO"
+    : allSucceeded
+      ? "NÃO ATENDIDO (latência acima do orçamento)"
+      : "NÃO ATENDIDO (requisições falhando — latência não é comparável)";
+  console.info(`${label} (p95 ≤ ${p95BudgetMs}ms, 0 non-2xx): ${verdict}`);
   return fulfilled;
 }

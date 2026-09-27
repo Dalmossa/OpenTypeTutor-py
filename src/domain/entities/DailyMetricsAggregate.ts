@@ -1,6 +1,7 @@
-import { SessionId } from '../value-objects/SessionId.js';
-import { Layout } from '../value-objects/Layout.js';
-import type { SessionMetrics } from './SessionMetrics.js';
+import { SessionId } from "../value-objects/SessionId.js";
+import { Layout } from "../value-objects/Layout.js";
+import type { SessionMetrics } from "./SessionMetrics.js";
+import { CHARS_PER_WORD, MS_PER_MINUTE } from "../config/timeUnits.js";
 
 export interface DailyMetricsAggregateProps {
   userId: SessionId;
@@ -68,13 +69,15 @@ export class DailyMetricsAggregate {
 
   static create(props: DailyMetricsAggregateProps): DailyMetricsAggregate {
     if (!(props.userId instanceof SessionId)) {
-      throw new Error('userId inválido');
+      throw new Error("userId inválido");
     }
     if (!(props.layout instanceof Layout)) {
-      throw new Error('Layout inválido');
+      throw new Error("Layout inválido");
     }
     if (!LOCAL_DATE_PATTERN.test(props.date)) {
-      throw new Error('date deve ser um dia calendário local YYYY-MM-DD (RN37)');
+      throw new Error(
+        "date deve ser um dia calendário local YYYY-MM-DD (RN37)",
+      );
     }
 
     return new DailyMetricsAggregate({
@@ -114,7 +117,8 @@ export class DailyMetricsAggregate {
       totalCorrectChars: this.totalCorrectChars + session.correctCharacters,
       totalErrors: this.totalErrors + session.incorrectCharacters,
       totalLatencyMs:
-        this.totalLatencyMs + session.averageLatencyMs * session.charactersTyped,
+        this.totalLatencyMs +
+        session.averageLatencyMs * session.charactersTyped,
       totalLatencySamples: this.totalLatencySamples + session.charactersTyped,
       keys: nextKeys,
       keyCounts: nextCounts,
@@ -133,7 +137,11 @@ export class DailyMetricsAggregate {
   // RN35 - derivações do dia (somente leitura)
   netWpm(): number {
     if (this.totalActiveMs === 0) return 0;
-    return this.totalCorrectChars / 5 / (this.totalActiveMs / 60000);
+    return (
+      this.totalCorrectChars /
+      CHARS_PER_WORD /
+      (this.totalActiveMs / MS_PER_MINUTE)
+    );
   }
 
   accuracy(): number {

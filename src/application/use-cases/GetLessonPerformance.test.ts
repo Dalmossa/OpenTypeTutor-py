@@ -55,6 +55,44 @@ describe("RN32 - GetLessonPerformance (status por lição)", () => {
     });
   }
 
+  /**
+   * Sessão COMPLETED com 100 caracteres, mas só 2s de duração ativa: insuficiente
+   * pela RN22 (o limiar é 3000ms) e, portanto, sem WPM calculado. Os WPMs ficam
+   * zerados de propósito — é o que `MetricsEngine` faz com sessão insuficiente.
+   */
+  function shortSession(
+    lessonId: string,
+    accuracy: number,
+    completedAt: string,
+  ): TypingSession {
+    const correctCharacters = Math.round(100 * accuracy);
+    return TypingSession.reconstruct({
+      id: SessionId.create(),
+      userId: SessionId.create(USER_ID),
+      lessonId: SessionId.create(lessonId),
+      layout: Layout.create("ABNT2"),
+      state: "COMPLETED",
+      startedAt: new Date(completedAt),
+      completedAt: new Date(completedAt),
+      activeDurationMs: 2_000,
+      metrics: SessionMetrics.create({
+        charactersTyped: 100,
+        correctCharacters,
+        incorrectCharacters: 100 - correctCharacters,
+        correctedErrors: 0,
+        finalUncorrectedErrors: 0,
+        accuracy,
+        grossWpm: 0,
+        netWpm: 0,
+        activeDurationMs: 2_000,
+        averageLatencyMs: 20,
+      }),
+      keystrokes: [],
+      pausedAt: null,
+      totalPausedDurationMs: 0,
+    });
+  }
+
   async function saveCompleted(
     lessonId: string,
     accuracy: number,
@@ -128,6 +166,36 @@ describe("RN32 - GetLessonPerformance (status por lição)", () => {
       lastAccuracy: 0.97,
       status: "MASTERED",
     });
+  });
+
+  it("RN22 - sessão insuficiente (2s) não conta como tentativa no agregado de RN32", async () => {
+    // Este é o efeito real da flag. Antes, `isInsufficientData()` respondia
+    // "a sessão não tem nada" (zero e zero), então uma sessão de 2 segundos com
+    // 100 caracteres passava: entrava no agregado, e a RN32 podia promover a
+    // lição a MASTERED com base numa métrica que a própria RN22 diz não ter
+    // significado. Uma sessão curta também inflava `attempts`.
+    await saveCompleted(LESSON_A, 0.97, "2026-01-02T00:00:00.000Z");
+    await sessionRepository.save(
+      shortSession(LESSON_A, 0.5, "2026-01-03T00:00:00.000Z"),
+    );
+
+    const result = await getLessonPerformance.execute(USER_ID);
+
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({
+      attempts: 1, // a sessão de 2s foi descartada
+      bestAccuracy: 0.97,
+      lastAccuracy: 0.97, // não virou 0.5, a "última" tentativa
+      status: "MASTERED",
+    });
+  });
+
+  it("RN22 - lição com só sessões insuficientes não aparece na lista", async () => {
+    await sessionRepository.save(
+      shortSession(LESSON_B, 0.99, "2026-01-03T00:00:00.000Z"),
+    );
+
+    expect(await getLessonPerformance.execute(USER_ID)).toEqual([]);
   });
 
   it("RN32 - agrega por lição e ordena por lessonId (determinístico)", async () => {

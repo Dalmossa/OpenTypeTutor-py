@@ -40,8 +40,24 @@ import type {
   SubmitProgressCardInputDTO,
   SubmitProgressCardResponseDTO,
 } from "../../application/dtos/ProgressCardDTOs.js";
-import type { PracticeStatusDTO } from "../../application/dtos/PracticePacingDTOs.js";
+import type {
+  PracticeStatusDTO,
+  LessonPacingStatusDTO,
+} from "../../application/dtos/PracticePacingDTOs.js";
+import type {
+  GetAdminSettingsResponseDTO,
+  UpdateAdminSettingsRequestDTO,
+  UpdateAdminSettingsResponseDTO,
+} from "../../application/dtos/AdminSettingsDTOs.js";
 import type { LessonPerformanceDTO } from "../../application/dtos/LessonPerformanceDTOs.js";
+import type {
+  RequestPasswordResetDTO,
+  RequestPasswordResetResponseDTO,
+  ConfirmPasswordResetDTO,
+  ConfirmPasswordResetResponseDTO,
+  AdminResetUserPasswordDTO,
+  AdminResetUserPasswordResponseDTO,
+} from "../../application/dtos/PasswordResetDTOs.js";
 import type {
   GetDashboardHabitsResponseDTO,
   GetDashboardMasteryResponseDTO,
@@ -57,7 +73,7 @@ export interface LoginPort {
 }
 
 export interface RefreshTokenPort {
-  execute(dto: RefreshTokenDTO): RefreshTokenResponseDTO;
+  execute(dto: RefreshTokenDTO): Promise<RefreshTokenResponseDTO>;
 }
 
 export interface GetUserPort {
@@ -145,4 +161,36 @@ export interface GetDashboardMasteryPort {
 
 export interface GetDashboardProximityPort {
   execute(userId: string): Promise<GetDashboardProximityResponseDTO>;
+}
+
+export interface GetLessonPacingStatusPort {
+  execute(userId: string): Promise<LessonPacingStatusDTO>;
+}
+
+export interface GetAdminSettingsPort {
+  execute(): Promise<GetAdminSettingsResponseDTO>;
+}
+
+export interface UpdateAdminSettingsPort {
+  execute(
+    dto: UpdateAdminSettingsRequestDTO,
+  ): Promise<UpdateAdminSettingsResponseDTO>;
+}
+
+export interface RequestPasswordResetPort {
+  execute(
+    dto: RequestPasswordResetDTO,
+  ): Promise<RequestPasswordResetResponseDTO>;
+}
+
+export interface ConfirmPasswordResetPort {
+  execute(
+    dto: ConfirmPasswordResetDTO,
+  ): Promise<ConfirmPasswordResetResponseDTO>;
+}
+
+export interface AdminResetUserPasswordPort {
+  execute(
+    dto: AdminResetUserPasswordDTO,
+  ): Promise<AdminResetUserPasswordResponseDTO>;
 }

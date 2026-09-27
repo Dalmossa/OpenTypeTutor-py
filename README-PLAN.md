@@ -290,7 +290,7 @@ O plano deste documento já foi, em grande parte, executado no repo `Open-type-t
 
 ## Anexo B — Execução pendente: Perfil (`/app/profile`, UI-UX-SRD §6.7)
 
-Contrato de backend já disponível (Fase 9): `GET /users/me` e `PATCH /users/me { layout }` (TASK-057, testado no backend — `src/presentation/app.test.ts`). Escopo de execução no cliente:
+Contrato de backend já disponível (Fase 9): `GET /users/me` e `PATCH /users/me { layout }` (TASK-057, testado no backend — `src/presentation/nest/nest-app.test.ts`). Escopo de execução no cliente:
 
 1. `web/services/api-client.ts` — adicionar `updateLayout(token, layout)` (`PATCH /users/me`), espelhando `getMe()`.
 2. `web/app/app/profile/page.tsx` (client) — usar `useAuth()`:
