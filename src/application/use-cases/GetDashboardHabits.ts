@@ -1,17 +1,24 @@
-import type { IUserProfileRepository } from '../../domain/repositories/IUserProfileRepository.js';
-import type { IDailyMetricsAggregateRepository } from '../../domain/repositories/IDailyMetricsAggregateRepository.js';
-import type { DailyMetricsAggregate } from '../../domain/entities/DailyMetricsAggregate.js';
-import { SessionId } from '../../domain/value-objects/SessionId.js';
-import { Layout } from '../../domain/value-objects/Layout.js';
-import { Timezone } from '../../domain/value-objects/Timezone.js';
-import { adaptiveParams } from '../../domain/config/adaptiveParams.js';
+import type { IUserProfileRepository } from "../../domain/repositories/IUserProfileRepository.js";
+import type { IDailyMetricsAggregateRepository } from "../../domain/repositories/IDailyMetricsAggregateRepository.js";
+import type { DailyMetricsAggregate } from "../../domain/entities/DailyMetricsAggregate.js";
+import { SessionId } from "../../domain/value-objects/SessionId.js";
+import { Layout } from "../../domain/value-objects/Layout.js";
+import { Timezone } from "../../domain/value-objects/Timezone.js";
+import { adaptiveParams } from "../../domain/config/adaptiveParams.js";
+import {
+  CHARS_PER_WORD,
+  MS_PER_MINUTE,
+} from "../../domain/config/timeUnits.js";
 import type {
   DashboardHeatmapKey,
   DashboardKPI,
   DashboardTrendPoint,
   GetDashboardHabitsResponseDTO,
-} from '../dtos/DashboardDTOs.js';
-import { shiftLocalDate } from './dashboardWindows.js';
+} from "../dtos/DashboardDTOs.js";
+import { shiftLocalDate } from "./dashboardWindows.js";
+
+// Default fallback para trend window quando adaptiveParams não define (dias)
+const DEFAULT_TREND_DAYS = 90;
 
 type Clock = () => Date;
 
@@ -23,18 +30,21 @@ export class GetDashboardHabits {
   constructor(
     private readonly profileRepository: IUserProfileRepository,
     private readonly aggregateRepository: IDailyMetricsAggregateRepository,
-    private readonly now: Clock = () => new Date()
+    private readonly now: Clock = () => new Date(),
   ) {}
 
   async execute(userId: string): Promise<GetDashboardHabitsResponseDTO> {
     const targetUserId = SessionId.create(userId);
     const profile = await this.profileRepository.findByUserId(targetUserId);
-    const layout = profile?.activeLayout ?? Layout.create('ABNT2');
+    const layout = profile?.activeLayout ?? Layout.create("ABNT2");
     const timezone =
-      profile !== null ? Timezone.create({ value: profile.timezone }) : Timezone.createDefault();
+      profile !== null
+        ? Timezone.create({ value: profile.timezone })
+        : Timezone.createDefault();
 
     const localToday = timezone.toLocalDateKey(this.now());
-    const trendDays = adaptiveParams.DASHBOARD_TREND_WINDOWS_DAYS.at(-1) ?? 90;
+    const trendDays =
+      adaptiveParams.DASHBOARD_TREND_WINDOWS_DAYS.at(-1) ?? DEFAULT_TREND_DAYS;
     const heatmapDays = adaptiveParams.DASHBOARD_HEATMAP_WINDOW_DAYS;
 
     const fromTrend = shiftLocalDate(localToday, -(trendDays - 1));
@@ -42,12 +52,18 @@ export class GetDashboardHabits {
       targetUserId,
       layout,
       fromTrend,
-      localToday
+      localToday,
     );
 
     const trend = this.buildTrend(aggregates, fromTrend, localToday, trendDays);
-    const kpis = this.buildKpis(aggregates, shiftLocalDate(localToday, -(KPI_WINDOW_DAYS - 1)));
-    const heatmap = this.buildHeatmap(aggregates, shiftLocalDate(localToday, -(heatmapDays - 1)));
+    const kpis = this.buildKpis(
+      aggregates,
+      shiftLocalDate(localToday, -(KPI_WINDOW_DAYS - 1)),
+    );
+    const heatmap = this.buildHeatmap(
+      aggregates,
+      shiftLocalDate(localToday, -(heatmapDays - 1)),
+    );
 
     return { kpis, trend, heatmap };
   }
@@ -56,7 +72,7 @@ export class GetDashboardHabits {
     aggregates: DailyMetricsAggregate[],
     fromDate: string,
     toDate: string,
-    days: number
+    days: number,
   ): DashboardTrendPoint[] {
     const byDate = new Map<string, DailyMetricsAggregate>();
     for (const aggregate of aggregates) {
@@ -69,18 +85,27 @@ export class GetDashboardHabits {
       const aggregate = byDate.get(cursor);
       points.push({
         date: cursor,
-        netWpm: aggregate !== undefined ? Math.round(aggregate.netWpm() * 100) / 100 : 0,
+        netWpm:
+          aggregate !== undefined
+            ? Math.round(aggregate.netWpm() * 100) / 100
+            : 0,
         accuracy: aggregate !== undefined ? aggregate.accuracy() : 0,
         averageLatencyMs:
-          aggregate !== undefined ? Math.round(aggregate.averageLatencyMs()) : 0,
-        sessionsCompleted: aggregate !== undefined ? aggregate.sessionsCompleted : 0,
+          aggregate !== undefined
+            ? Math.round(aggregate.averageLatencyMs())
+            : 0,
+        sessionsCompleted:
+          aggregate !== undefined ? aggregate.sessionsCompleted : 0,
       });
       cursor = shiftLocalDate(cursor, 1);
     }
     return points;
   }
 
-  private buildKpis(aggregates: DailyMetricsAggregate[], fromDate: string): DashboardKPI {
+  private buildKpis(
+    aggregates: DailyMetricsAggregate[],
+    fromDate: string,
+  ): DashboardKPI {
     let sessionsCompleted = 0;
     let totalActiveMs = 0;
     let totalGrossChars = 0;
@@ -103,8 +128,11 @@ export class GetDashboardHabits {
     }
 
     const netWpm =
-      totalActiveMs === 0 ? 0 : totalCorrectChars / 5 / (totalActiveMs / 60000);
-    const accuracy = totalGrossChars === 0 ? 0 : totalCorrectChars / totalGrossChars;
+      totalActiveMs === 0
+        ? 0
+        : totalCorrectChars / CHARS_PER_WORD / (totalActiveMs / MS_PER_MINUTE);
+    const accuracy =
+      totalGrossChars === 0 ? 0 : totalCorrectChars / totalGrossChars;
     const averageLatencyMs =
       totalLatencySamples === 0 ? 0 : totalLatencyMs / totalLatencySamples;
 
@@ -118,13 +146,22 @@ export class GetDashboardHabits {
     };
   }
 
-  private buildHeatmap(aggregates: DailyMetricsAggregate[], fromDate: string): DashboardHeatmapKey[] {
-    const counts = new Map<string, { count: number; activeDays: Set<string> }>();
+  private buildHeatmap(
+    aggregates: DailyMetricsAggregate[],
+    fromDate: string,
+  ): DashboardHeatmapKey[] {
+    const counts = new Map<
+      string,
+      { count: number; activeDays: Set<string> }
+    >();
 
     for (const aggregate of aggregates) {
       if (aggregate.date < fromDate) continue;
       for (const [key, count] of Object.entries(aggregate.keyCountsByKey)) {
-        const entry = counts.get(key) ?? { count: 0, activeDays: new Set<string>() };
+        const entry = counts.get(key) ?? {
+          count: 0,
+          activeDays: new Set<string>(),
+        };
         entry.count += count;
         entry.activeDays.add(aggregate.date);
         counts.set(key, entry);
@@ -137,6 +174,8 @@ export class GetDashboardHabits {
         count,
         activeDays: activeDays.size,
       }))
-      .sort((a, b) => b.count - a.count || a.logicalKey.localeCompare(b.logicalKey));
+      .sort(
+        (a, b) => b.count - a.count || a.logicalKey.localeCompare(b.logicalKey),
+      );
   }
 }
