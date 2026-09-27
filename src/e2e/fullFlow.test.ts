@@ -5,7 +5,9 @@ import type { DataSource } from "typeorm";
 import { createTestDataSource } from "../infrastructure/database/testing.js";
 import { rateLimitParams } from "../infrastructure/auth/rateLimitParams.js";
 import { TypeOrmLessonRepository } from "../infrastructure/repositories/TypeOrmLessonRepository.js";
-import { createNestApp } from "../nestRuntime.js";
+import { buildNestProviders, createNestApp } from "../nestRuntime.js";
+import { TOKENS } from "../presentation/nest/nestTokens.js";
+import type { AdminSettingsDTO } from "../application/dtos/AdminSettingsDTOs.js";
 import { Lesson } from "../domain/entities/Lesson.js";
 import { Layout } from "../domain/value-objects/Layout.js";
 import { SessionId } from "../domain/value-objects/SessionId.js";
@@ -462,5 +464,218 @@ describe("ADR-013/ADR-024 - o rate limit está montado no app de runtime", () =>
       .post("/auth/refresh")
       .send({ refreshToken: current });
     expect(afterLoginBudget.status).toBe(200);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Paridade entre `TOKENS` e `buildNestProviders`.
+//
+// Este é o teste **estrutural** do mesmo invariante, e ele existe porque a via
+// HTTP acima falha de um jeito ruim: tirar um token do grafo faz o Nest chamar
+// `process.abort()` na inicialização, o worker morre com SIGABRT e o vitest
+// reporta "Tests (14)" sem contagem de aprovado e um stack de `nest-factory`.
+// O gate reprova (exit 1, medido), mas ninguém descobre *qual* token sumiu.
+//
+// Comparando os dois conjuntos, a falha vira uma lista de nomes. E a direção
+// inversa também é coberta: um provider sem token é wiring morto, que é a mesma
+// classe do 0% de cobertura de `useCasePorts.ts` que o ADR-024 registrou.
+// ---------------------------------------------------------------------------
+
+describe("ADR-024 - paridade entre TOKENS e buildNestProviders", () => {
+  let parityDataSource: DataSource;
+  let providers: Record<string, unknown>;
+
+  beforeAll(async () => {
+    parityDataSource = await createTestDataSource();
+    providers = buildNestProviders(parityDataSource);
+  });
+
+  afterAll(async () => {
+    await parityDataSource.destroy();
+  });
+
+  it("todo token declarado tem provider no composition root", () => {
+    const declared = Object.values(TOKENS);
+    const missing = declared.filter((token) => !(token in providers));
+
+    // A mensagem sai com os nomes: é a diferença entre "o gate reprovou" e
+    // "falta o provider de UpdateAdminSettings".
+    expect(missing).toEqual([]);
+  });
+
+  it("todo provider do grafo tem token declarado — nenhum wiring morto", () => {
+    const declared = new Set<string>(Object.values(TOKENS));
+    const orphans = Object.keys(providers).filter((key) => !declared.has(key));
+
+    expect(orphans).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// As 6 rotas que nasceram só no composition root Express (ADR-024).
+//
+// `RequestPasswordReset`, `ConfirmPasswordReset`, `AdminResetUserPassword`,
+// `GetAdminSettings`, `UpdateAdminSettings` e `GetLessonPacingStatus` estavam
+// registrados em `composition-root.ts` e **não** em `main-nest.ts`, o app que
+// sobe: `npm run dev` respondia 404 nelas com a suíte inteira verde.
+//
+// A cobertura que o ADR-024 deixou é de *wiring*: `nest-app.test.ts` monta o
+// app com `AppNestModule.forRoot(deps)` e um mapa de fakes próprio. Esse
+// arranjo não pega a classe de defeito do incidente — ele **fornece** o caso de
+// uso em vez de consumi-lo do composition root. Apagar
+// `[TOKENS.UPDATE_ADMIN_SETTINGS]` de `buildNestProviders` deixa o
+// `nest-app.test.ts` verde, porque o fake dele satisfaz o `@Inject`; o app que
+// sobe em produção é que quebra.
+//
+// O que pega é o oposto: subir o app pelo `createNestApp` do runtime e deixar a
+// resolução de token acontecer sozinha. Aqui as três rotas/settings+pacing são
+// exercitadas com o caso de uso E o repositório reais, e a asserção é sobre o
+// valor que saiu do SQLite — não sobre o status.
+// ---------------------------------------------------------------------------
+
+describe("ADR-024 - as 6 rotas recuperadas respondem no app de runtime", () => {
+  let adminDataSource: DataSource;
+  let adminServer: Server;
+  let adminToken = "";
+  let userToken = "";
+
+  async function register(email: string, name: string): Promise<void> {
+    const res = await request(adminServer)
+      .post("/auth/register")
+      .send({ name, email, password: "senha-segura-123" });
+    expect(res.status).toBe(201);
+  }
+
+  async function login(email: string): Promise<string> {
+    const res = await request(adminServer)
+      .post("/auth/login")
+      .send({ email, password: "senha-segura-123" });
+    expect(res.status).toBe(200);
+    return (res.body as TokensBody).accessToken;
+  }
+
+  beforeAll(async () => {
+    adminDataSource = await createTestDataSource();
+    const app = await createNestApp(adminDataSource);
+    adminServer = app.getHttpServer();
+
+    await register("root.admin@email.com", "Root");
+    // O `role` viaja no JWT — é o `AuthGuard` que popula `req.role` para o
+    // `AdminGuard` — então a promoção tem que vir ANTES do login. Um token já
+    // emitido continua dizendo "user" mesmo depois do UPDATE, e o 403 do teste
+    // de acesso viria de um fixture errado em vez do guard.
+    await adminDataSource.query(
+      "UPDATE users SET role = 'admin' WHERE email = ?",
+      ["root.admin@email.com"],
+    );
+    adminToken = await login("root.admin@email.com");
+
+    await register("comum.rn34@email.com", "Comum");
+    userToken = await login("comum.rn34@email.com");
+  });
+
+  afterAll(async () => {
+    await adminDataSource.destroy();
+  });
+
+  it("GET /admin/settings responde 200 no app de runtime", async () => {
+    const res = await request(adminServer)
+      .get("/admin/settings")
+      .set("Authorization", `Bearer ${adminToken}`);
+
+    expect(res.status).toBe(200);
+    // Esta asserção, sozinha, NAO distingue a linha do SQLite do fallback do
+    // caso de uso: a migracao 013 semeia exatamente os valores de
+    // `adaptiveParams`, entao os dois caminhos dao o mesmo corpo hoje. O que
+    // distingue e o teste do PATCH abaixo, que grava um valor que nao existe em
+    // lugar nenhum do codigo e exige que o GET seguinte o devolva.
+    expect(res.body).toEqual({
+      macroBreakEnabled: true,
+      macroLessonsThreshold: 3,
+      macroBreakDurationMs: 10800000,
+      microBlockDurationMs: 900000,
+      microBreakDurationMs: 180000,
+    });
+  });
+
+  it("PATCH /admin/settings persiste e o GET seguinte lê o valor novo do banco", async () => {
+    const patched = await request(adminServer)
+      .patch("/admin/settings")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ macroLessonsThreshold: 9, macroBreakDurationMs: 7200000 });
+
+    expect(patched.status).toBe(200);
+    expect((patched.body as AdminSettingsDTO).macroLessonsThreshold).toBe(9);
+
+    // A prova de que a escrita foi no banco e não no objeto do caso de uso:
+    // um GET novo, com caso de uso novo, tem que devolver o valor gravado.
+    const reread = await request(adminServer)
+      .get("/admin/settings")
+      .set("Authorization", `Bearer ${adminToken}`);
+
+    expect(reread.status).toBe(200);
+    // O cast é para o tipo do DTO: `res.body` é `any` no supertest, e ler
+    // membro de `any` é `no-unsafe-member-access` — o mesmo porquê do
+    // `(res.body as TokensBody)` que o resto do arquivo já usa.
+    const body = reread.body as AdminSettingsDTO;
+    expect(body.macroLessonsThreshold).toBe(9);
+    expect(body.macroBreakDurationMs).toBe(7200000);
+    // PATCH não é PUT: os campos não enviados sobrevivem.
+    expect(body.microBlockDurationMs).toBe(900000);
+  });
+
+  it("PATCH /admin/settings rejeita threshold negativo com 422, sem gravar", async () => {
+    const res = await request(adminServer)
+      .patch("/admin/settings")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ macroLessonsThreshold: -1 });
+
+    expect(res.status).toBe(422);
+    expect(errorCode(res)).toBe("VALIDATION_ERROR");
+  });
+
+  it("usuário comum não entra em /admin/settings — 403 no app de runtime", async () => {
+    // O incidente do ADR-024 item 2 foi exatamente uma rota de admin sem
+    // guard, respondendo 200 para anônimo. Este é o teste no app real.
+    const res = await request(adminServer)
+      .get("/admin/settings")
+      .set("Authorization", `Bearer ${userToken}`);
+
+    expect(res.status).toBe(403);
+    expect(errorCode(res)).toBe("FORBIDDEN");
+  });
+
+  it("sem token, /admin/settings é 401 e não 403", async () => {
+    const res = await request(adminServer).get("/admin/settings");
+
+    expect(res.status).toBe(401);
+    expect(errorCode(res)).toBe("UNAUTHORIZED");
+  });
+
+  it("GET /me/lesson-pacing responde com o caso de uso real sobre o SQLite real", async () => {
+    const res = await request(adminServer)
+      .get("/me/lesson-pacing")
+      .set("Authorization", `Bearer ${userToken}`);
+
+    expect(res.status).toBe(200);
+    // Usuário novo: nada de pacing gravado, então o caso de uso cria o estado
+    // zerado em memória. O corpo inteiro é a asserção — um `200 {}` passaria
+    // num teste de status, que é o que faltava aqui.
+    expect(res.body).toEqual({
+      lessonsSinceMacroBreak: 0,
+      macroLessonsThreshold: 3,
+      macroBreakEnabled: true,
+      macroBreakDurationMs: 10800000,
+      macroBreakRequired: false,
+      macroBreakRemainingMs: 0,
+      nextAvailableAt: null,
+    });
+  });
+
+  it("GET /me/lesson-pacing é 401 sem token, no app de runtime", async () => {
+    const res = await request(adminServer).get("/me/lesson-pacing");
+
+    expect(res.status).toBe(401);
+    expect(errorCode(res)).toBe("UNAUTHORIZED");
   });
 });

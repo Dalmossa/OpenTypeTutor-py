@@ -82,13 +82,58 @@ O describe `ADR-002/ADR-005 - paridade entre ALL_MIGRATIONS e SCHEMA_MIGRATIONS`
 
 ## Estado atual do working tree
 
-**Gate medido em 2026-09-27, depois do ADR-024, na ordem `lint → typecheck → test` — VERDE:**
+**Gate medido em 2026-09-27, depois do ADR-024 + fechamento do buraco de cobertura, na ordem `lint → typecheck → test` — VERDE:**
 
 - `npm run lint` → **0 erros**, 43 warnings (exatamente no teto do ratchet, `--max-warnings 43`)
 - `npm run typecheck` → passa em `src` **e** `bench` (`tsc --noEmit && tsc -p tsconfig.bench.json`)
-- `npm run test` → **819 passando** em 81 arquivos, 0 falha
+- `npm run test` → **849 passando** em 83 arquivos, 0 falha (era 819/81)
+- `npm run test:coverage` → 94,4% stmts · 87,16% branches · 93,9% funcs · 94,85% lines, thresholds respeitados
 
 O número de warnings é um **snapshot de árvore em movimento**: se você editar `src/` enquanto o outro agente trabalha, reveja com `npm run lint:baseline` e ajuste o teto junto — um `--max-warnings` errado derruba o gate por um motivo que não é seu.
+
+### O buraco que o ADR-024 deixou: teste de porta, não de caso de uso
+
+O ADR-024 registrou que 6 rotas viviam só no composition root Express. Corrigido o registro, **a cobertura que existia continuava sendo do tipo errado**: `nest-app.test.ts` monta o app com `AppNestModule.forRoot(deps)` e um mapa de fakes próprio. Isso prova que a rota está montada e que o controller chama algo — não que o caso de uso ou o repositório funcionam. Os 4 arquivos mais mal cobertos do repositório eram exatamente os do incidente:
+
+| Arquivo                             | Antes (stmts/branch) | Depois      |
+| ----------------------------------- | -------------------- | ----------- |
+| `UpdateAdminSettings.ts`            | 14,28% / **0%**      | 100 / 100   |
+| `GetLessonPacingStatus.ts`          | 16,66% / **0%**      | 100 / 85,71 |
+| `TypeOrmAdminSettingsRepository.ts` | 16,66% / **0%**      | 100 / 100   |
+| `GetAdminSettings.ts`               | 33,33% / **0%**      | 100 / 100   |
+
+`GetAdminSettings` não aparecia em **nenhum** `.test.ts` do repositório — a cobertura vinha de wiring tests com fakes via `overrides`, que nunca executam uma linha do caso de uso.
+
+**O branch que faltou em `GetLessonPacingStatus` é inalcançável, e isso está certo.** É o `?? null` de `nextAvailableAt`: com `macroBreakRequired` verdadeiro, `macroBreakEndsAt` é necessariamente não-nulo (é a própria definição de `isMacroBreakRequired`). O `??` é exigência de tipo (`string | undefined` não satisfaz `string | null`), não caminho de código — e nenhum teste o alcança. **Nem toda branch merece 100%; às vezes a resposta honesta é dizer que ela é inalcançável por construção.** O que o teste do RN34 garante é o outro lado: com a pausa **já cumprida** e `endsAt` ainda no storage, `nextAvailableAt` é `null` (validado por mutação: remover a guarda dá `expected '2026-09-17T11:59:59.000Z' to be null`).
+
+#### O e2e pega o que o wiring test não pega — medido, não suposto
+
+Tirar `[TOKENS.UPDATE_ADMIN_SETTINGS]` de `buildNestProviders` foi a mutação de validação. Resultado medido:
+
+| Suíte                                    | Com a mutação                 | exit |
+| ---------------------------------------- | ----------------------------- | ---- |
+| `src/e2e/fullFlow.test.ts`               | **worker abortado (SIGABRT)** | 1    |
+| `src/presentation/nest/nest-app.test.ts` | **61 passando, verde**        | 0    |
+
+Ou seja: o wiring test **não** pegaria — ele _fornece_ o caso de uso em vez de consumi-lo do composition root. Isso confirma a tese do ADR-024 com a classe de defeito nova: um token faltando no grafo só quebra o app que sobe.
+
+**Mas o sinal do e2e é ruim.** O Nest chama `process.abort()` na inicialização, o worker morre com SIGABRT e o vitest reporta `Tests (14)` sem contagem de aprovado, com um stack de `nest-factory`. O gate reprova, ninguém descobre _qual_ token sumiu. Daí o segundo bloco do e2e, `ADR-024 - paridade entre TOKENS e buildNestProviders`: compara `Object.values(TOKENS)` com as chaves de `buildNestProviders(dataSource)` nos **dois** sentidos. A mesma mutação vira
+
+```
+AssertionError: expected [ 'UpdateAdminSettings' ] to deeply equal []
+```
+
+Um token declarado sem provider é rota que não sobe; um provider sem token é wiring morto — a mesma classe do 0% de cobertura de `useCasePorts.ts` que o ADR-024 registrou. **Esse é o teste estrutural que faltava para aquela dívida**, porque ele pega porta órfã sem precisar descobrir que porta órfã existe.
+
+### Dívidas que a fase de cobertura expôs e NÃO fechou
+
+1. **`admin_settings` é persistida e nunca consumida.** `PATCH /admin/settings` grava a linha, `GET /admin/settings` devolve o que foi gravado, e **nada muda de comportamento**: `PracticePacingState` lê `adaptiveParams` direto, e `AdminSettings.getEffectiveParams()` — que existe exatamente para "admin settings > adaptiveParams defaults" — é chamado **só pelo próprio teste**. É a mesma classe do ADR-024: rota que responde 200 sem fazer nada. Fechar isso é injetar os parâmetros efetivos no domínio, o que mexe em RN33/RN34 em 4 use cases, então é decisão de design, não correção de cobertura. Registrado como comentário em `PracticePacing.test.ts` na asserção que fixa o threshold vindo de `adaptiveParams` — quem ligar os dois sabe exatamente qual asserção revisar.
+2. **A migração 013 é de "schema" e semeia.** `AddAdminSettingsTable` faz `CREATE TABLE` **e** `INSERT`, e está nas **duas** listas — inclusive em `SCHEMA_MIGRATIONS`, que por convenção é "só schema, sem seed". Efeito colateral medido: `find()` **nunca** devolve `null` em nenhum banco migrado, nem nos testes, então o ramo `?? { defaults }` do `GetAdminSettings` é inalcançável fora de um fake. Pinado por teste no repositório, para que mexer na migração apareça como quebra de contrato.
+3. **A linha semeada é cópia, não referência.** `admin_settings.macroLessonsThreshold` vale 3 porque a migração rodou com 3; mudar `adaptiveParams` não muda a linha. O teste que compara os dois existe para que essa segunda fonte de verdade quebre de forma visível em vez de silenciosa.
+4. **`updatedAt` tem dois formatos na mesma coluna.** A migração grava `datetime('now')` (`2026-09-27 02:56:34`) e `toRow` grava ISO (`2026-09-27T02:56:34.000Z`). `AdminSettingsRow.updatedAt` é `string` e ninguém lê, então nada quebra — por enquanto.
+5. **`AdminSettingsProps` não aceitava `undefined` explícito.** Com `exactOptionalPropertyTypes`, `{ macroBreakEnabled?: boolean }` **recusa** `{ macroBreakEnabled: boolean | undefined }` — que é o formato do `UpdateAdminSettingsRequestDTO`. `update` (que declara `| undefined` inline) aceitava o DTO e `create` não: a mesma divergência entre duas fontes de verdade, dentro de um arquivo. Corrigido com `| undefined` nos 5 campos **e** um `ResolvedAdminSettingsProps` para o construtor privado, porque `Required<AdminSettingsProps>` com `| undefined` produziria `boolean | undefined` e deixaria o construtor aceitar ausência — o oposto do que o `?? adaptiveParams` existe para impedir. Mesmo padrão de `PracticePacingState` / `PracticePacingInternalProps`.
+6. **O tipo `Clock` está duplicado em 3 lugares.** Canônico em `src/application/dtos/PracticePacingDTOs.ts:22`, redefinido localmente em `GetDashboardHabits.ts:16` e `GetDashboardMastery.ts:16` (`type Clock = () => Date;`).
+7. **`no-unnecessary-condition` brigando com o narrowing de propriedade.** O TS estreita `repository.stored` para `null` no inicializador do campo e **não revalida** depois de um `await`, então o `?.` vira "branch morto" para o linter. A anotação explícita (`const persisted: AdminSettings | null = repository.stored`) resolve — e remover o `?.` esconderia justamente o caso que o teste existe para provar. Nos lugares onde o valor foi atribuído logo acima, o certo é **não** usar `?.`: o narrowing é exato e o `?.` mascararia o caso de o caso de uso não ter gravado nada.
 
 ### O commit que passou no meu gate e estava vermelho
 

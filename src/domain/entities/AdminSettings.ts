@@ -1,11 +1,31 @@
 import { adaptiveParams } from "../config/adaptiveParams.js";
 
+// Os campos aceitam `| undefined` explícito de propósito: com
+// `exactOptionalPropertyTypes`, `{ macroBreakEnabled?: boolean }` **recusa**
+// `{ macroBreakEnabled: boolean | undefined }`, e é exatamente esse o formato do
+// `UpdateAdminSettingsRequestDTO`. Sem o `| undefined` aqui, a entidade e o DTO
+// discordavam: `update` (que declara o `| undefined` inline) aceitava o DTO e
+// `create` não — a mesma divergência entre duas fontes de verdade que o ADR-024
+// registrou, agora dentro de um arquivo.
 export interface AdminSettingsProps {
-  macroBreakEnabled?: boolean;
-  macroLessonsThreshold?: number;
-  macroBreakDurationMs?: number;
-  microBlockDurationMs?: number;
-  microBreakDurationMs?: number;
+  macroBreakEnabled?: boolean | undefined;
+  macroLessonsThreshold?: number | undefined;
+  macroBreakDurationMs?: number | undefined;
+  microBlockDurationMs?: number | undefined;
+  microBreakDurationMs?: number | undefined;
+}
+
+// Invariante interno: já resolvido, nunca `undefined`. `Required<AdminSettingsProps>`
+// NÃO serviria, porque com `| undefined` nos campos ele produz
+// `boolean | undefined` e o construtor passaria a aceitar ausência — que é
+// exatamente o que a resolução por `?? adaptiveParams` existe para evitar.
+// Mesmo padrão de `PracticePacingState` / `PracticePacingInternalProps`.
+export interface ResolvedAdminSettingsProps {
+  macroBreakEnabled: boolean;
+  macroLessonsThreshold: number;
+  macroBreakDurationMs: number;
+  microBlockDurationMs: number;
+  microBreakDurationMs: number;
 }
 
 export interface AdminSettingsDTO {
@@ -25,7 +45,7 @@ export class AdminSettings {
   readonly microBlockDurationMs: number;
   readonly microBreakDurationMs: number;
 
-  private constructor(props: Required<AdminSettingsProps>) {
+  private constructor(props: ResolvedAdminSettingsProps) {
     this.macroBreakEnabled = props.macroBreakEnabled;
     this.macroLessonsThreshold = props.macroLessonsThreshold;
     this.macroBreakDurationMs = props.macroBreakDurationMs;
